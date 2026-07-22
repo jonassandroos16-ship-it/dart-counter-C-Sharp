@@ -23,7 +23,7 @@ public partial class App : ComponentBase, IDisposable
     private TitleUnlockInfo? _titleUnlock;
     private KillInfo? _kill;
 
-    protected override async Task OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         State.OnChange += StateOnChange;
         Toast.OnChange += ToastOnChange;

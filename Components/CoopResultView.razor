@@ -1,0 +1,57 @@
+@using dart_counter.Models
+@using dart_counter.Logic
+
+<div class="coop-result">
+    @if (Battle.Outcome == CoopOutcome.Victory)
+    {
+        <div class="result-victory">
+            <div style="font-size:48px;">🏆</div>
+            <h2>Victory!</h2>
+            <p class="muted">@Battle.LevelName cleared!</p>
+            @if (!string.IsNullOrEmpty(Chapter?.Outro) && Battle.IsBoss)
+            {
+                <p class="story-text">@Chapter.Outro</p>
+            }
+            else if (!string.IsNullOrEmpty(Battle.Stats?.ToString()))
+            {
+                <div class="battle-stats">
+                    <div class="stat"><div class="v">@Battle.Stats.DartsThrown</div><div class="l">Darts Thrown</div></div>
+                    <div class="stat"><div class="v">@Battle.Stats.DamageDealt</div><div class="l">Damage Dealt</div></div>
+                    <div class="stat"><div class="v">@Battle.Stats.EnemiesDefeated</div><div class="l">Enemies Defeated</div></div>
+                    <div class="stat"><div class="v">@Battle.Stats.PowerUpsUsed</div><div class="l">Power-ups Used</div></div>
+                    <div class="stat"><div class="v">@Battle.Stats.VisitsUsed</div><div class="l">Visits</div></div>
+                    <div class="stat"><div class="v">@Battle.Stats.PartyHpLost</div><div class="l">HP Lost</div></div>
+                </div>
+            }
+            <div class="row" style="gap:8px;margin-top:16px;">
+                <button class="btn-primary" @onclick="OnContinue">Continue</button>
+                <button class="btn-sm" @onclick="OnQuit">Back to Map</button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="result-defeat">
+            <div style="font-size:48px;">💀</div>
+            <h2>Defeated</h2>
+            <p class="muted">Your party fell at @Battle.LevelName.</p>
+            <div class="battle-stats">
+                <div class="stat"><div class="v">@Battle.Stats.DartsThrown</div><div class="l">Darts Thrown</div></div>
+                <div class="stat"><div class="v">@Battle.Stats.DamageDealt</div><div class="l">Damage Dealt</div></div>
+                <div class="stat"><div class="v">@Battle.Stats.EnemiesDefeated</div><div class="l">Enemies Defeated</div></div>
+            </div>
+            <div class="row" style="gap:8px;margin-top:16px;">
+                <button class="btn-primary" @onclick="OnRetry">Retry</button>
+                <button class="btn-sm" @onclick="OnQuit">Back to Map</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public CampaignBattleState Battle { get; set; } = default!;
+    [Parameter] public CampaignChapter? Chapter { get; set; }
+    [Parameter] public Action OnContinue { get; set; } = default!;
+    [Parameter] public Action OnRetry { get; set; } = default!;
+    [Parameter] public Action OnQuit { get; set; } = default!;
+}
