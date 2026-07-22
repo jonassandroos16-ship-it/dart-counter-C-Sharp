@@ -273,7 +273,7 @@ h3 { font-size: 18px; }
 .welcome-rings .r1 { width: 60px; height: 60px; animation-delay: 0s; }
 .welcome-rings .r2 { width: 120px; height: 120px; animation-delay: .3s; }
 .welcome-rings .r3 { width: 200px; height: 200px; animation-delay: .6s; }
-@@keyframes ringPulse { 0%,100% { opacity: .1; transform: translate(-50%,-50%) scale(.9); } 50% { opacity: .4; transform: translate(-50%,-50%) scale(1); } }
+@keyframes ringPulse { 0%,100% { opacity: .1; transform: translate(-50%,-50%) scale(.9); } 50% { opacity: .4; transform: translate(-50%,-50%) scale(1); } }
 .welcome-title { font-size: 48px; font-weight: 800; margin-bottom: 8px; }
 .welcome-title .w1 { color: var(--accent); }
 .welcome-title .w2 { color: var(--text); }
@@ -358,11 +358,15 @@ h3 { font-size: 18px; }
 .dart-btn.bull { color: #f59e0b; }
 .dart-btn.bullseye { color: var(--accent); font-size: 20px; }
 .dart-btn.miss { color: var(--muted); }
-.dart-btn.dbl, .dart-btn.trpl { font-size: 13px; padding: 10px 6px; }
 .dart-btn.dbl { color: #3b82f6; }
 .dart-btn.trpl { color: #ef4444; }
+.dart-btn.active-mul {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+    color: var(--accent);
+}
 
-.multiplier-row { display: flex; gap: 6px; margin-top: 6px; }
+.multiplier-row { display: flex; gap: 6px; }
 .multiplier-row .dart-btn { flex: 1; }
 
 /* Mode select */
