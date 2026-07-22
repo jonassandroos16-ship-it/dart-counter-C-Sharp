@@ -30,17 +30,13 @@ public static class GameModes
     };
 
     public static List<string> ModeKeys => Modes.Keys.ToList();
-
-    public static readonly int[] AtcTargets = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, -1 };
+    public static int[] AtcTargets = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, -1 };
     public static string AtcLabel(int i) => i >= AtcTargets.Length ? "Done" : (AtcTargets[i] == -1 ? "Bull" : AtcTargets[i].ToString());
-
-    public static readonly int[] DartboardNumbers = { 20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5 };
-
-    public static readonly int[] KillerNumbers = { 20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5 };
-
-    public static readonly string[] Colors = { "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#a855f7", "#84cc16" };
-    public static readonly string[] TeamColors = { "#3b82f6", "#ef4444", "#22c55e", "#f59e0b" };
-    public static readonly string[] TeamNames = { "Alpha", "Bravo", "Delta", "Echo" };
+    public static int[] DartboardNumbers = { 20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5 };
+    public static int[] KillerNumbers = { 20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5 };
+    public static string[] Colors = { "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#a855f7", "#84cc16" };
+    public static string[] TeamColors = { "#3b82f6", "#ef4444", "#22c55e", "#f59e0b" };
+    public static string[] TeamNames = { "Alpha", "Bravo", "Delta", "Echo" };
 }
 
 public static class Checkouts
@@ -73,7 +69,6 @@ public static class Checkouts
 public static class ScorePopups
 {
     public class PopupDef { public int Min { get; set; } public string Emoji { get; set; } = ""; public string Title { get; set; } = ""; public string Sub { get; set; } = ""; }
-
     public static readonly List<PopupDef> Scores = new()
     {
         new() { Min = 180, Emoji = "💥", Title = "ONE HUNDRED AND EIGHTY!", Sub = "Maximum score!" },
@@ -83,7 +78,6 @@ public static class ScorePopups
         new() { Min = 80, Emoji = "🎯", Title = "80+", Sub = "Solid visit" },
         new() { Min = 60, Emoji = "👍", Title = "60+", Sub = "Steady scoring" },
     };
-
     public static readonly List<PopupDef> Milestones = new()
     {
         new() { Min = 200, Emoji = "🎯", Title = "Below 200!", Sub = "On the finish" },
@@ -95,7 +89,6 @@ public static class ScorePopups
 public static class ShowdownBgs
 {
     public class BgDef { public string Id { get; set; } = ""; public string Label { get; set; } = ""; public string Css { get; set; } = ""; }
-
     public static readonly List<BgDef> All = new()
     {
         new() { Id = "default", Label = "Midnight", Css = "radial-gradient(circle at 50% 40%, #1a1d2a 0%, #0a0c12 70%)" },
@@ -109,11 +102,25 @@ public static class ShowdownBgs
         new() { Id = "crimson", Label = "Crimson", Css = "radial-gradient(circle at 50% 30%, #3a0a1a 0%, #1a050a 60%, #0a0205 100%)" },
         new() { Id = "storm", Label = "Storm", Css = "linear-gradient(180deg, #1a1a2a 0%, #2a2a3a 40%, #0a0a1a 100%)" },
     };
-
     public static string CssFor(string? id)
     {
         if (string.IsNullOrEmpty(id)) return All[0].Css;
-        var found = All.FirstOrDefault(b => b.Id == id);
-        return found?.Css ?? All[0].Css;
+        return All.FirstOrDefault(b => b.Id == id)?.Css ?? All[0].Css;
     }
+}
+
+public static class PlayerSounds
+{
+    public class SoundDef { public PlayerSoundId Id { get; set; } public string Name { get; set; } = ""; public string Icon { get; set; } = ""; }
+    public static readonly List<SoundDef> All = new()
+    {
+        new() { Id = PlayerSoundId.None, Name = "None", Icon = "🔇" },
+        new() { Id = PlayerSoundId.Hero, Name = "Hero", Icon = "🦸" },
+        new() { Id = PlayerSoundId.Villain, Name = "Villain", Icon = "🦹" },
+        new() { Id = PlayerSoundId.Cyborg, Name = "Cyborg", Icon = "🤖" },
+        new() { Id = PlayerSoundId.Mystic, Name = "Mystic", Icon = "🔮" },
+        new() { Id = PlayerSoundId.Beast, Name = "Beast", Icon = "🐺" },
+        new() { Id = PlayerSoundId.Champion, Name = "Champion", Icon = "🏆" },
+    };
+    public static SoundDef? GetInfo(PlayerSoundId id) => All.FirstOrDefault(s => s.Id == id);
 }
