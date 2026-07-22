@@ -1,12 +1,14 @@
 using dart_counter.Models;
 using System.Text.Json;
 using System.Net.Http.Json;
+using Microsoft.JSInterop;
 
 namespace dart_counter.Services;
 
 public class SupabaseSyncService
 {
     private readonly HttpClient _http;
+    private readonly IJSRuntime _js;
     private const string SupabaseUrl = "https://0ec90b57d6e95fcbda19832f.supabase.co";
     private const string SupabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJib2x0IiwicmVmIjoiMGVjOTBiNTdkNmU5NWZjYmRhMTk4MzJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4ODE1NzQsImV4cCI6MTc1ODg4MTU3NH0.9I8-U0x86Ak8t2DGaIk0HfvTSLsAyzdnz-Nw00mMkKw";
 
@@ -16,7 +18,18 @@ public class SupabaseSyncService
     public DateTime? LastSync { get; private set; }
     public bool Syncing { get; private set; }
 
-    public SupabaseSyncService(HttpClient http) => _http = http;
+    public SupabaseSyncService(HttpClient http, IJSRuntime js)
+    {
+        _http = http;
+        _js = js;
+        _ = InitJsCredentials();
+    }
+
+    private async Task InitJsCredentials()
+    {
+        try { await _js.InvokeVoidAsync("dartCounter.initSupabase", SupabaseUrl, SupabaseKey); }
+        catch { }
+    }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string url)
     {
