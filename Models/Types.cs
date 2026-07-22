@@ -43,6 +43,8 @@ public class Player
     public string? ShowdownBg { get; set; }
     public PlayerCoopProgress? CoopProgress { get; set; }
     public PlayerCampaignProgress? CampaignProgress { get; set; }
+    public PlayerDartliteStats? DartliteStats { get; set; }
+    public Dictionary<string, List<PlayerCard>>? Cards { get; set; }
 }
 
 public class Dart
@@ -54,22 +56,8 @@ public class Dart
     public bool IsDouble { get; set; }
     public bool IsTriple { get; set; }
     public bool IsBull { get; set; }
-    public bool IsOuterBull { get; set; }
-    public bool IsMiss => Value == 0;
-}
-
-public class Visit
-{
-    public List<Dart> Darts { get; set; } = new();
-    public int Scored { get; set; }
-    public int Remaining { get; set; }
-    public bool Bust { get; set; }
-    public DateTime Date { get; set; } = DateTime.UtcNow;
-    public int Hits { get; set; }
-    public int EndIdx { get; set; }
-    public int Leg { get; set; } = 1;
-    public int Checkout { get; set; }
-    public bool Atc { get; set; }
+    public bool IsOuter { get; set; }
+    public bool IsMiss { get; set; }
 }
 
 public class GamePlayer
@@ -78,174 +66,140 @@ public class GamePlayer
     public string Name { get; set; } = "";
     public string Color { get; set; } = "#22c55e";
     public int Score { get; set; }
-    public int LegsWon { get; set; }
-    public List<Visit> Visits { get; set; } = new();
-    public int Idx { get; set; }
-    public int DartsThrown { get; set; }
-    public bool Done { get; set; }
+    public int StartScore { get; set; }
+    public List<Dart> Darts { get; set; } = new();
+    public int? LegWins { get; set; }
+    public int? SetWins { get; set; }
     public int? Team { get; set; }
-    // Killer mode
-    public int? Lives { get; set; }
-    public bool? Eliminated { get; set; }
-    public int? KillerNumber { get; set; }
-    public int? KillerHits { get; set; }
-    public List<string>? Kills { get; set; }
-    // Power-ups
-    public int? PowerUpCharge { get; set; }
-    public bool? PowerUpUsed { get; set; }
-    public int? PowerUpUses { get; set; }
-    public string? PowerUpId { get; set; }
-    // Transient power-up flags (not serialized)
-    [JsonIgnore] public bool _surgeNext { get; set; }
-    [JsonIgnore] public bool _surgeArmed { get; set; }
-    [JsonIgnore] public bool _crippledNext { get; set; }
-    [JsonIgnore] public bool _frozenNext { get; set; }
-    [JsonIgnore] public bool _luckyMiss { get; set; }
-    [JsonIgnore] public bool _bullseyeFrenzy { get; set; }
-    [JsonIgnore] public bool _hotStreak { get; set; }
-    [JsonIgnore] public int _shieldTurns { get; set; }
-    [JsonIgnore] public bool _oneDartNext { get; set; }
-    // Battle mode
-    public int? Hp { get; set; }
-    public int? MaxHp { get; set; }
-    public int? ArmorPct { get; set; }
-    public int? PowerPct { get; set; }
-    public int? DamageDealt { get; set; }
-    public bool? Defeated { get; set; }
+    public bool Eliminated { get; set; }
+    public bool IsWinner { get; set; }
+    public int? Rank { get; set; }
+    public int? AvgVisitScore { get; set; }
+    public int? VisitCount { get; set; }
+    public int? First9Avg { get; set; }
+    public int? HighestScore { get; set; }
+    public int? HighestRun { get; set; }
+    public int? Checkout { get; set; }
+    public int? CheckoutAttempts { get; set; }
+    public int? Ton80s { get; set; }
+    public int? TonPlus { get; set; }
+    public int? OneEighties { get; set; }
+    public int? One40Plus { get; set; }
+    public int? One60Plus { get; set; }
+    public int? Bulls { get; set; }
+    public int? Bullseyes { get; set; }
+    public int? Misses { get; set; }
+    public int? Doubles { get; set; }
+    public int? Triples { get; set; }
+    public int? PowerUpsUsed { get; set; }
+    public int? Busts { get; set; }
+    public int? Visits { get; set; }
 }
 
 public class Game
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Mode { get; set; } = "501";
+    public string ModeLabel { get; set; } = "501";
+    public bool DoubleOut { get; set; }
+    public int LegsTarget { get; set; } = 1;
+    public int SetsTarget { get; set; } = 1;
+    public bool TeamMode { get; set; }
+    public bool PowerUps { get; set; }
     public List<GamePlayer> Players { get; set; } = new();
     public int CurrentIdx { get; set; }
     public int CurrentLeg { get; set; } = 1;
-    public int LegsBestOf { get; set; } = 1;
-    public bool DoubleOut { get; set; }
+    public int CurrentSet { get; set; } = 1;
     public bool Finished { get; set; }
-    public string? Winner { get; set; }
-    public bool Tied { get; set; }
-    public List<string>? TiedPlayers { get; set; }
-    public bool Practice { get; set; }
-    public bool Atc { get; set; }
-    public bool Killer { get; set; }
-    public bool Party { get; set; }
-    public bool TeamMode { get; set; }
-    public int? WinningTeam { get; set; }
-    public int TeamCount { get; set; }
-    public bool PowerUpsEnabled { get; set; }
-    public DateTime Date { get; set; } = DateTime.UtcNow;
-    public List<int>? ThrownThisRound { get; set; }
-    public int StartScore { get; set; } = 501;
-    // Transient (not serialized)
-    [JsonIgnore] public List<Dart>? Darts { get; set; }
+    public string? WinnerId { get; set; }
+    public string? WinnerName { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? FinishedAt { get; set; }
+    public string? Note { get; set; }
+    public bool Ranked { get; set; }
+    public string? ActivePowerUp { get; set; }
+    public int? PowerUpTargetIdx { get; set; }
+    public string? PowerUpState { get; set; }
+    public bool PowerUpPending { get; set; }
+    public string? ActiveShield { get; set; }
+    public int? ShieldTurns { get; set; }
+    public List<string>? Log { get; set; }
+    public int? First9Avg { get; set; }
+    public int? HighestScore { get; set; }
+    public int? HighestRun { get; set; }
+    public int? Ton80s { get; set; }
+    public int? OneEighties { get; set; }
+    public int? Bulls { get; set; }
+    public int? Bullseyes { get; set; }
+    public int? Busts { get; set; }
+    public int? Visits { get; set; }
 }
 
 public class GameRecord
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString("N");
-    public string Mode { get; set; } = "501";
-    public List<GamePlayer> Players { get; set; } = new();
-    public string? Winner { get; set; }
-    public bool Tied { get; set; }
-    public List<string>? TiedPlayers { get; set; }
-    public DateTime Date { get; set; } = DateTime.UtcNow;
-    public bool Practice { get; set; }
-    public bool Atc { get; set; }
-    public bool Party { get; set; }
-    public bool TeamMode { get; set; }
-    public int? WinningTeam { get; set; }
-    public int TeamCount { get; set; }
-    public int LegsBestOf { get; set; } = 1;
-}
-
-public class XpConfig
-{
-    public int Win { get; set; } = 50;
-    public int Visit60 { get; set; } = 5;
-    public int Visit80 { get; set; } = 10;
-    public int Visit100 { get; set; } = 15;
-    public int Visit120 { get; set; } = 20;
-    public int Visit140 { get; set; } = 25;
-    public int Visit180 { get; set; } = 50;
-    public int Checkout { get; set; } = 10;
-    public int PerDart { get; set; } = 1;
-    public double LevelMult { get; set; } = 1.5;
-    public int BaseLevelXp { get; set; } = 100;
-}
-
-public class PowerUpScaling
-{
-    public double ChargePerDouble { get; set; } = 8;
-    public double ChargePerTriple { get; set; } = 12;
-    public double ChargePerBull { get; set; } = 15;
-    public double ChargePerScorePoint { get; set; } = 0.05;
-    public int ChargeMax { get; set; } = 100;
-    public int PointsPerLevel { get; set; } = 1;
-    public int StartingPoints { get; set; } = 1;
-    public int AttributePointsPerLevel { get; set; } = 5;
-    public int AttributeStartHealth { get; set; } = 300;
-    public int AttributeStartArmor { get; set; } = 0;
-    public int AttributeStartPower { get; set; } = 0;
-    public int HealthPerPoint { get; set; } = 25;
-    public int ArmorPerPoint { get; set; } = 1;
-    public int PowerPerPoint { get; set; } = 1;
-    public int ArmorMax { get; set; } = 25;
-    public int PowerMax { get; set; } = 30;
-    public int HealthMax { get; set; } = 1000;
-    public int BattleMinDamage { get; set; } = 1;
-    public Dictionary<string, int>? StartingCharge { get; set; }
-    public Dictionary<string, int>? ChargesNeeded { get; set; }
-}
-
-public class PopupSettings
-{
-    public bool Scores { get; set; } = true;
-    public bool Milestones { get; set; } = true;
-    public bool Xp { get; set; } = true;
-    public bool Titles { get; set; } = true;
-}
-
-public class CustomTitle
-{
     public string Id { get; set; } = "";
-    public string Name { get; set; } = "";
-    public string Icon { get; set; } = "";
-    public string Desc { get; set; } = "";
-    public string? ConditionType { get; set; }
-    public int? Base { get; set; }
-    public int? Mult { get; set; }
-    public int? Count { get; set; }
-    public int? Value { get; set; }
-    public List<CustomTitleDart>? Darts { get; set; }
-}
-
-public class CustomTitleDart
-{
-    public int Base { get; set; }
-    public int Mult { get; set; } = 1;
+    public Game Game { get; set; } = new();
+    public DateTime CreatedAt { get; set; }
 }
 
 public class Settings
 {
     public string Theme { get; set; } = "dark";
     public string Accent { get; set; } = "#22c55e";
-    public GameModeType GameMode { get; set; } = GameModeType.Dartboard;
-    public bool ConfirmReset { get; set; } = true;
     public bool Sound { get; set; } = true;
-    public bool Music { get; set; } = true;
+    public string ClickSound { get; set; } = "tick";
+    public string HitSound { get; set; } = "thud";
+    public string Sfx { get; set; } = "hero";
+    public bool Music { get; set; }
+    public double MusicVolume { get; set; } = 0.3;
     public string MusicStartTrack { get; set; } = "start_bullseye_anthem";
     public string MusicSetupTrack { get; set; } = "setup_horizon";
     public string MusicMatchTrack { get; set; } = "match_drive";
     public string MusicCoopTrack { get; set; } = "coop_siege";
-    public double SfxVolume { get; set; } = 0.9;
-    public double MusicVolume { get; set; } = 0.9;
-    public string HitSoundPack { get; set; } = "thud";
-    public string ClickSound { get; set; } = "tick";
-    public double ClickVolume { get; set; } = 0.6;
-    public XpConfig XpConfig { get; set; } = new();
-    public List<CustomTitle> CustomTitles { get; set; } = new();
-    public PopupSettings Popups { get; set; } = new();
+    public int StartScore { get; set; } = 501;
+    public bool DoubleOut { get; set; } = true;
+    public int LegsTarget { get; set; } = 3;
+    public int SetsTarget { get; set; } = 1;
+    public bool TeamMode { get; set; }
+    public bool PowerUps { get; set; }
+    public GameModeType GameModeType { get; set; } = GameModeType.Dartboard;
+    public bool ShowSetup { get; set; } = true;
+    public bool ShowFirst9Avg { get; set; } = true;
+    public bool ShowHighestScore { get; set; } = true;
+    public bool ShowHighestRun { get; set; } = true;
+    public bool ShowTon80s { get; set; } = true;
+    public bool ShowOneEighties { get; set; } = true;
+    public bool ShowBulls { get; set; } = true;
+    public bool ShowBullseyes { get; set; } = true;
+    public bool ShowBusts { get; set; } = true;
+    public bool ShowVisits { get; set; } = true;
+    public bool ShowCheckoutPct { get; set; } = true;
+    public bool ShowAvgVisitScore { get; set; } = true;
+    public bool ShowPowerUpStats { get; set; } = true;
+    public List<string> CustomTitles { get; set; } = new();
     public PowerUpScaling PowerUpScaling { get; set; } = new();
+    public bool WelcomeShown { get; set; }
+}
+
+public class PowerUpScaling
+{
+    public int AttributeStartHealth { get; set; } = 400;
+    public int AttributeStartArmor { get; set; } = 0;
+    public int AttributeStartPower { get; set; } = 0;
+    public int AttributeMaxHealth { get; set; } = 800;
+    public int AttributeMaxArmor { get; set; } = 50;
+    public int AttributeMaxPower { get; set; } = 100;
+    public int ChargeMax { get; set; } = 100;
+    public int ChargePerHit { get; set; } = 12;
+    public int ChargePerVisit { get; set; } = 8;
+    public int XpPerLevel { get; set; } = 1000;
+    public int XpPerKill { get; set; } = 20;
+    public int XpPerWin { get; set; } = 50;
+    public int XpPerLoss { get; set; } = 15;
+    public int XpPerVisit { get; set; } = 5;
+    public int XpPerDart { get; set; } = 2;
+    public int XpPer180 { get; set; } = 200;
+    public int XpPerTon { get; set; } = 50;
+    public int XpPerBullseye { get; set; } = 30;
+    public int XpPerCheckout { get; set; } = 100;
 }
