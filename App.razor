@@ -1,14 +1,3 @@
-@if (_loading)
-{
-    <div class="app-shell" style="display:flex;align-items:center;justify-content:center;">
-        <div style="text-align:center;color:var(--muted);">
-            <div style="font-size:48px;margin-bottom:12px;">🎯</div>
-            <div>Loading Dart Wars...</div>
-        </div>
-    </div>
-    return;
-}
-
 <div class="app-shell">
     @if (!_welcomeDone)
     {
@@ -24,59 +13,69 @@
                     <span class="word w2">Wars</span>
                 </h1>
                 <p class="welcome-sub">Aim. Score. Conquer.</p>
-                <button class="welcome-cta" @onclick="DismissWelcome">
-                    <span class="welcome-cta-inner">Press to continue</span>
-                </button>
+                @if (_loading)
+                {
+                    <p class="welcome-loading">Loading…</p>
+                }
+                else
+                {
+                    <button class="welcome-cta" @onclick="DismissWelcome">
+                        <span class="welcome-cta-inner">Press to continue</span>
+                    </button>
+                }
             </div>
         </div>
     }
 
-    @if (_view == "play")
+    @if (!_loading)
     {
-        <PlayView />
-    }
-    else if (_view == "players")
-    {
-        <div class="view-scroll">
-            <PlayersView />
-        </div>
-    }
-    else if (_view == "stats")
-    {
-        <StatsView />
-    }
-    else if (_view == "history")
-    {
-        <HistoryView />
-    }
-    else if (_view == "settings")
-    {
-        <SettingsView />
-    }
-
-    <button class="nav-toggle @(_navOpen ? "open" : "")" @onclick="ToggleNav" aria-label="@(_navOpen ? "Hide navigation" : "Show navigation")">
-        @if (_navOpen)
+        @if (_view == "play")
         {
-            <text>▲</text>
+            <PlayView />
         }
-        else
+        else if (_view == "players")
         {
-            <text>▼</text>
+            <div class="view-scroll">
+                <PlayersView />
+            </div>
         }
-    </button>
-
-    <nav class="nav @(_navOpen ? "open" : "")">
-        @foreach (var item in _nav)
+        else if (_view == "stats")
         {
-            <button class="@(_view == item.Id ? "active" : "")" @onclick="() => SetView(item.Id)">
-                <span class="nav-icon">@item.Icon</span>
-                <span>@item.Label</span>
-            </button>
+            <StatsView />
         }
-    </nav>
+        else if (_view == "history")
+        {
+            <HistoryView />
+        }
+        else if (_view == "settings")
+        {
+            <SettingsView />
+        }
 
-    @if (Toast.Visible)
-    {
-        <div class="toast show">@Toast.Message</div>
+        <button class="nav-toggle @(_navOpen ? "open" : "")" @onclick="ToggleNav" aria-label="@(_navOpen ? "Hide navigation" : "Show navigation")">
+            @if (_navOpen)
+            {
+                <text>▲</text>
+            }
+            else
+            {
+                <text>▼</text>
+            }
+        </button>
+
+        <nav class="nav @(_navOpen ? "open" : "")">
+            @foreach (var item in _nav)
+            {
+                <button class="@(_view == item.Id ? "active" : "")" @onclick="() => SetView(item.Id)">
+                    <span class="nav-icon">@item.Icon</span>
+                    <span>@item.Label</span>
+                </button>
+            }
+        </nav>
+
+        @if (Toast.Visible)
+        {
+            <div class="toast show">@Toast.Message</div>
+        }
     }
 </div>
