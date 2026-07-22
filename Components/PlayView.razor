@@ -45,7 +45,7 @@
         <div class="play-header">
             <div class="row between" style="margin-bottom:12px;">
                 <button class="btn sm" @onclick="QuitGame">← Quit</button>
-                <div class="pill">@GameModes.Modes[_game.Mode].Label</div>
+                <div class="pill">@(GameModes.Modes.ContainsKey(_game.Mode) ? GameModes.Modes[_game.Mode].Label : _game.Mode)</div>
             </div>
         </div>
 
@@ -57,7 +57,16 @@
                         <span class="avatar sm" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
                         <span style="font-weight:600;font-size:14px;">@p.Name</span>
                     </div>
-                    <div style="font-size:28px;font-weight:800;margin-top:4px;">@(_game.Atc ? GameModes.AtcLabel(p.Visits.Sum(v => v.Hits)) : p.Score)</div>
+                    <div style="font-size:28px;font-weight:800;margin-top:4px;">
+                        @if (_game.Atc)
+                        {
+                            @GameModes.AtcLabel(p.Visits.Sum(v => v.Hits))
+                        }
+                        else
+                        {
+                            @p.Score
+                        }
+                    </div>
                     @if (_game.LegsBestOf > 1 && !_game.Atc)
                     {
                         <div class="muted small">Legs: @p.LegsWon</div>
@@ -103,20 +112,27 @@
         </div>
 
         <div class="dartboard-input">
+            <div class="multiplier-row" style="margin-bottom:8px;">
+                <button class="dart-btn sm @(_multiplier == 1 ? "active-mul" : "")" @onclick="() => SetMultiplier(1)">Single</button>
+                <button class="dart-btn dbl sm @(_multiplier == 2 ? "active-mul" : "")" @onclick="() => SetMultiplier(2)">Double</button>
+                <button class="dart-btn trpl sm @(_multiplier == 3 ? "active-mul" : "")" @onclick="() => SetMultiplier(3)">Triple</button>
+            </div>
             <div class="dartboard-grid">
                 @for (int n = 1; n <= 20; n++)
                 {
                     var num = n;
                     <button class="dart-btn" @onclick="() => RecordDart(num, num.ToString())">@num</button>
                 }
-                <button class="dart-btn bull" @onclick="() => RecordDart(25, "Bull", isBull: true)">Bull<br/><small>25</small></button>
-                <button class="dart-btn bullseye" @onclick="() => RecordDart(50, "Bullseye", isBull: true)">★<br/><small>50</small></button>
-                <button class="dart-btn miss" @onclick="() => RecordDart(0, "Miss")">Miss<br/><small>0</small></button>
+                <button class="dart-btn bull" @onclick="RecordBull">Bull<br/><small>25</small></button>
+                <button class="dart-btn bullseye" @onclick="() => SetMultiplier(2)">★ x2<br/><small>Bullseye 50</small></button>
+                <button class="dart-btn miss" @onclick="RecordMiss">Miss<br/><small>0</small></button>
             </div>
-            <div class="multiplier-row">
-                <button class="dart-btn dbl" @onclick="() => RecordDart(0, "Double", isDouble: true)">Double</button>
-                <button class="dart-btn trpl" @onclick="() => RecordDart(0, "Triple", isTriple: true)">Triple</button>
-            </div>
+            @if (_multiplier != 1)
+            {
+                <div style="text-align:center;margin-top:8px;font-size:13px;color:var(--accent);font-weight:600;">
+                    Multiplier: @(_multiplier == 2 ? "Double" : "Triple") — tap a number
+                </div>
+            }
         </div>
     </div>
     return;
@@ -124,42 +140,40 @@
 
 @if (_showSetup)
 {
+    var modeDef = GameModes.Modes[_selectedMode];
     <div class="view-scroll">
         <div class="row between" style="margin-bottom:16px;">
-            <h2>@GameModes.Modes[_selectedMode].Label</h2>
+            <h2>@modeDef.Label</h2>
             <button class="btn sm" @onclick="BackToModeSelect">← Back</button>
         </div>
         <div class="card" style="margin-bottom:12px;">
-            <p class="muted">@GameModes.Modes[_selectedMode].Desc</p>
+            <p class="muted">@modeDef.Desc</p>
             <ul class="rules-list">
-                @foreach (var rule in GameModes.Modes[_selectedMode].Rules)
+                @foreach (var rule in modeDef.Rules)
                 {
                     <li>@rule</li>
                 }
             </ul>
         </div>
 
-        @if (!_game?.Atc == true || _game == null)
+        @if (modeDef.Start > 0 && !modeDef.Party)
         {
             <div class="card" style="margin-bottom:12px;">
                 <div class="muted small" style="margin-bottom:8px;">Options</div>
-                @if (GameModes.Modes[_selectedMode].Start > 0 && !GameModes.Modes[_selectedMode].Party)
-                {
-                    <label class="row" style="gap:8px;margin-bottom:8px;cursor:pointer;">
-                        <input type="checkbox" @bind="_doubleOut" />
-                        <span>Double Out (require double to finish)</span>
-                    </label>
-                    <div class="row" style="gap:8px;align-items:center;margin-bottom:8px;">
-                        <span class="small">Best of</span>
-                        <select @bind="_legsBestOf" class="select">
-                            <option value="1">1</option>
-                            <option value="3">3</option>
-                            <option value="5">5</option>
-                            <option value="7">7</option>
-                        </select>
-                        <span class="small">legs</span>
-                    </div>
-                }
+                <label class="row between" style="margin-bottom:8px;cursor:pointer;">
+                    <span>Double Out (require double to finish)</span>
+                    <input type="checkbox" @bind="_doubleOut" />
+                </label>
+                <div class="row" style="gap:8px;align-items:center;margin-bottom:8px;">
+                    <span class="small">Best of</span>
+                    <select @bind="_legsBestOf" class="select" style="width:auto;">
+                        <option value="1">1</option>
+                        <option value="3">3</option>
+                        <option value="5">5</option>
+                        <option value="7">7</option>
+                    </select>
+                    <span class="small">legs</span>
+                </div>
             </div>
         }
 
@@ -192,10 +206,9 @@
     <div class="mode-grid">
         @foreach (var mode in GameModes.Modes)
         {
+            var icon = mode.Value.Atc ? "🕐" : mode.Value.Killer ? "💀" : mode.Value.Practice ? "🎯" : mode.Value.Party ? "🎉" : mode.Value.Start == 501 ? "🏆" : "🎯";
             <button class="mode-card" @onclick="() => PickMode(mode.Key)">
-                <div style="font-size:32px;margin-bottom:8px;">
-                    @(mode.Value.Atc ? "🕐" : mode.Value.Killer ? "💀" : mode.Value.Practice ? "🎯" : mode.Value.Party ? "🎉" : mode.Value.Start == 501 ? "🏆" : mode.Value.Start == 301 ? "⚡" : mode.Value.Start == 701 ? "🎯" : "🎯")
-                </div>
+                <div style="font-size:32px;margin-bottom:8px;">@icon</div>
                 <div style="font-weight:700;font-size:16px;">@mode.Value.Label</div>
                 <div class="muted small" style="margin-top:4px;">@mode.Value.Desc</div>
             </button>
