@@ -41,6 +41,8 @@ public class Player
     public PlayerPowerUps? PowerUps { get; set; }
     public bool DeveloperMode { get; set; }
     public string? ShowdownBg { get; set; }
+    public PlayerCoopProgress? CoopProgress { get; set; }
+    public PlayerCampaignProgress? CampaignProgress { get; set; }
 }
 
 public class Dart
