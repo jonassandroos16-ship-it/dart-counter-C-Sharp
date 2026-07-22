@@ -18,6 +18,4 @@ public partial class StatsView : ComponentBase
     }
 
     private void StateOnChange() => InvokeAsync(StateHasChanged);
-
-    private Player? SelectedPlayer => State.Players.FirstOrDefault(p => p.Id == _selectedPlayerId);
 }

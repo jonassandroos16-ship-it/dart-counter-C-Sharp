@@ -1,81 +1,153 @@
-<div class="app-shell">
-    @if (!_welcomeDone)
-    {
-        <div class="welcome-overlay">
-            <div class="welcome-stage">
-                <div class="welcome-rings">
-                    <span class="ring r1"></span>
-                    <span class="ring r2"></span>
-                    <span class="ring r3"></span>
-                </div>
-                <h1 class="welcome-title">
-                    <span class="word w1">Dart</span>
-                    <span class="word w2">Wars</span>
-                </h1>
-                <p class="welcome-sub">Aim. Score. Conquer.</p>
-                @if (_loading)
-                {
-                    <p class="welcome-loading">Loading…</p>
-                }
-                else
-                {
-                    <button class="welcome-cta" @onclick="DismissWelcome">
-                        <span class="welcome-cta-inner">Press to continue</span>
-                    </button>
-                }
+@inject GameStateService State
+@inject ToastService Toast
+@inject SoundService Sound
+
+@if (_showWelcome)
+{
+    <div class="welcome-overlay @(_welcomeGone ? "welcome-gone" : "")" @onclick="DismissWelcome">
+        <div class="welcome-stage">
+            <div class="welcome-rings">
+                <span class="ring r1"></span>
+                <span class="ring r2"></span>
+                <span class="ring r3"></span>
             </div>
+            <h1 class="welcome-title">
+                <span class="word w1">Dart</span>
+                <span class="word w2">Wars</span>
+            </h1>
+            <p class="welcome-sub">Aim. Score. Conquer.</p>
+            <button class="welcome-cta" @onclick="DismissWelcome">
+                <span>Press to continue</span>
+            </button>
         </div>
-    }
+    </div>
+    return;
+}
 
-    @if (!_loading)
-    {
-        @if (_view == "play")
-        {
-            <PlayView />
-        }
-        else if (_view == "players")
-        {
-            <div class="view-scroll">
-                <PlayersView />
-            </div>
-        }
-        else if (_view == "stats")
-        {
-            <StatsView />
-        }
-        else if (_view == "history")
-        {
-            <HistoryView />
-        }
-        else if (_view == "settings")
-        {
-            <SettingsView />
-        }
-
-        <button class="nav-toggle @(_navOpen ? "open" : "")" @onclick="ToggleNav" aria-label="@(_navOpen ? "Hide navigation" : "Show navigation")">
-            @if (_navOpen)
+<div class="app-shell">
+    <div class="topbar">
+        <div class="brand">
+            <span class="dot"></span>
+            <span>Dart Wars</span>
+        </div>
+        <div class="row" style="gap:8px;">
+            @if (State.Syncing)
             {
-                <text>▲</text>
+                <span class="sync-dot pending"></span>
+            }
+            else if (State.Connected)
+            {
+                <span class="sync-dot online"></span>
             }
             else
             {
-                <text>▼</text>
+                <span class="sync-dot offline"></span>
             }
-        </button>
+        </div>
+    </div>
 
-        <nav class="nav @(_navOpen ? "open" : "")">
-            @foreach (var item in _nav)
-            {
-                <button class="@(_view == item.Id ? "active" : "")" @onclick="() => SetView(item.Id)">
-                    <span class="nav-icon">@item.Icon</span>
-                    <span>@item.Label</span>
-                </button>
-            }
-        </nav>
-
-        @if (Toast.Visible)
+    @if (_loading)
+    {
+        <div class="view-scroll center" style="display:flex;align-items:center;justify-content:center;">
+            <div class="muted">Loading...</div>
+        </div>
+    }
+    else
+    {
+        @switch (_view)
         {
-            <div class="toast show">@Toast.Message</div>
+            @case "play":
+                <PlayView />
+                break;
+            @case "players":
+                <PlayersView />
+                break;
+            @case "stats":
+                <StatsView />
+                break;
+            @case "history":
+                <HistoryView />
+                break;
+            @case "settings":
+                <SettingsView />
+                break;
         }
     }
+
+    <div class="nav @(_navOpen ? "open" : "")">
+        <button class="@(_view == "play" ? "active" : "")" @onclick="() => SwitchView("play")">
+            <span style="font-size:18px;">🎯</span> Play
+        </button>
+        <button class="@(_view == "players" ? "active" : "")" @onclick="() => SwitchView("players")">
+            <span style="font-size:18px;">👥</span> Players
+        </button>
+        <button class="@(_view == "stats" ? "active" : "")" @onclick="() => SwitchView("stats")">
+            <span style="font-size:18px;">📊</span> Stats
+        </button>
+        <button class="@(_view == "history" ? "active" : "")" @onclick="() => SwitchView("history")">
+            <span style="font-size:18px;">📜</span> History
+        </button>
+        <button class="@(_view == "settings" ? "active" : "")" @onclick="() => SwitchView("settings")">
+            <span style="font-size:18px;">⚙️</span> Settings
+        </button>
+    </div>
+    <button class="nav-toggle @(_navOpen ? "open" : "")" @onclick="ToggleNav">
+        <span style="font-size:14px;">⌃</span>
+    </button>
 </div>
+
+@if (!string.IsNullOrEmpty(Toast.Message))
+{
+    <div class="toast show">@Toast.Message</div>
+}
+
+@if (_popup != null)
+{
+    <div class="milestone-bg" @onclick="ClosePopup">
+        <div class="milestone">
+            <div class="ms-emoji">@_popup.Emoji</div>
+            <div class="ms-title">@_popup.Title</div>
+            <div class="ms-sub">@_popup.Sub</div>
+            @if (_popup.Record)
+            {
+                <div class="ms-record">★</div>
+            }
+        </div>
+    </div>
+}
+
+@if (_levelUp != null)
+{
+    <div class="levelup-bg" @onclick="CloseLevelUp">
+        <div class="levelup">
+            <div class="lu-ring"><div class="lu-level">@_levelUp.Level</div></div>
+            <div class="lu-title">Level Up!</div>
+            <div class="lu-sub">@_levelUp.Name reached level @_levelUp.Level</div>
+            <div class="lu-xp">+@_levelUp.XpGained XP · @_levelUp.Reason</div>
+        </div>
+    </div>
+}
+
+@if (_titleUnlock != null)
+{
+    <div class="levelup-bg" @onclick="CloseTitleUnlock">
+        <div class="levelup">
+            <div class="lu-ring" style="border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, var(--bg-2));">
+                <div style="font-size:44px;">@(_titleUnlock.Icon ?? "🏅")</div>
+            </div>
+            <div class="lu-title">Title Unlocked!</div>
+            <div class="lu-sub">@_titleUnlock.Player earned "@_titleUnlock.Name"</div>
+            <div class="lu-sub" style="margin-top:2px;font-size:12px;">@_titleUnlock.Desc</div>
+        </div>
+    </div>
+}
+
+@if (_kill != null)
+{
+    <div class="kill-bg" @onclick="CloseKill">
+        <div class="kill">
+            <div class="kill-emoji">💀</div>
+            <div class="kill-title">ELIMINATED!</div>
+            <div class="kill-sub"><b>@_kill.Killer</b> knocked out <b>@_kill.Victim</b></div>
+        </div>
+    </div>

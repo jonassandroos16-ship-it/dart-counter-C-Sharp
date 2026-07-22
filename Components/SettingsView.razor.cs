@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 using dart_counter.Models;
 using dart_counter.Logic;
 using dart_counter.Services;
+using Microsoft.JSInterop;
 using System.Text.Json;
 
 namespace dart_counter.Components;
@@ -11,49 +11,56 @@ public partial class SettingsView : ComponentBase
 {
     [Inject] GameStateService State { get; set; } = default!;
     [Inject] ToastService Toast { get; set; } = default!;
+    [Inject] SoundService Sound { get; set; } = default!;
     [Inject] IJSRuntime JS { get; set; } = default!;
 
-    private bool _showExport = false;
-    private string _exportData = "";
+    protected override void OnInitialized()
+    {
+        State.OnChange += StateOnChange;
+    }
 
-    protected override void OnInitialized() => State.OnChange += StateOnChange;
     private void StateOnChange() => InvokeAsync(StateHasChanged);
-
-    private async Task UpdateSettings(Settings settings) => await State.SetSettings(settings);
-
-    private async Task SaveSettings() => await State.SetSettings(State.Settings);
-
-    private void Update(Action<Settings> fn)
-    {
-        fn(State.Settings);
-        _ = State.SetSettings(State.Settings);
-    }
-
-    private async Task ToggleTheme()
-    {
-        State.Settings.Theme = State.Settings.Theme == "dark" ? "light" : "dark";
-        await State.SetSettings(State.Settings);
-        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Accent);
-    }
 
     private async Task SetAccent(string color)
     {
         State.Settings.Accent = color;
         await State.SetSettings(State.Settings);
-        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Accent);
+    }
+
+    private async Task TestSound()
+    {
+        await Sound.PlayHit(State.Settings, 60);
+    }
+
+    private async Task SyncNow()
+    {
+        Toast.Show("Syncing...");
+        var (ok, msg) = await State.ManualSync();
+        Toast.Show(msg);
     }
 
     private async Task ExportData()
     {
-        var data = new { players = State.Players, games = State.Games, settings = State.Settings, exportedAt = DateTime.UtcNow };
-        _exportData = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-        _showExport = true;
-        await Task.CompletedTask;
+        var data = new
+        {
+            players = State.Players,
+            games = State.Games,
+            settings = State.Settings
+        };
+        var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+        var encoded = Uri.EscapeDataString(json);
+        await JS.InvokeVoidAsync("eval", $"navigator.clipboard.writeText(decodeURIComponent('{encoded}'))");
+        Toast.Show("Data copied to clipboard!");
     }
 
-    private async Task Sync()
+    private async Task EraseAllData()
     {
-        var (ok, msg) = await State.ManualSync();
-        Toast.Show(msg);
+        State.Players.Clear();
+        State.Games.Clear();
+        State.Settings = new Settings();
+        await State.SetPlayers(State.Players);
+        await State.SetGames(State.Games);
+        await State.SetSettings(State.Settings);
+        Toast.Show("All data erased.");
     }
 }
