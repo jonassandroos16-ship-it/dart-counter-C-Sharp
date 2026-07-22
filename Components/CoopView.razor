@@ -1,0 +1,153 @@
+@using dart_counter.Models
+@using dart_counter.Logic
+@using dart_counter.Services
+@inject GameStateService State
+@inject ToastService Toast
+@inject SoundService Sound
+
+@if (_battle == null)
+{
+    <CoopSetupView OnStartBattle="StartBattle" />
+}
+else if (_battle.Outcome == CoopOutcome.Ongoing)
+{
+    <CoopBattleView Battle="_battle" Settings="State.Settings" OnAddDart="HandleAddDart" OnUndoDart="HandleUndoDart" OnResolveVisit="HandleResolveVisit" OnSetTarget="HandleSetTarget" OnActivatePowerUp="HandleActivatePowerUp" OnPrepareEnemyTurn="HandlePrepareEnemyTurn" OnApplyNextAttack="HandleApplyNextAttack" OnContinue="HandleContinue" OnQuit="QuitBattle" />
+}
+else
+{
+    <CoopResultView Battle="_battle" Chapter="_chapter" OnContinue="AfterResult" OnRetry="RetryBattle" OnQuit="QuitBattle" />
+}
+
+@code {
+    private CampaignBattleState? _battle;
+    private CampaignChapter? _chapter;
+    private CampaignLevel? _level;
+    private List<Player> _partyPlayers = new();
+
+    private void StartBattle(CampaignChapter chapter, CampaignLevel level, List<Player> party)
+    {
+        _chapter = chapter;
+        _level = level;
+        _partyPlayers = party;
+        _battle = CoopEngine.StartBattle(level, party, State.Settings, chapter.Id);
+        State.Notify();
+    }
+
+    private void HandleAddDart(int baseNum, int mult, string? label, bool isBull)
+    {
+        if (_battle == null) return;
+        _battle = CoopEngine.AddDart(_battle, baseNum, mult, label, isBull, State.Settings);
+        _ = Sound.PlayClick(State.Settings);
+        State.Notify();
+    }
+
+    private void HandleUndoDart()
+    {
+        if (_battle == null) return;
+        _battle = CoopEngine.UndoDart(_battle, State.Settings);
+        State.Notify();
+    }
+
+    private void HandleResolveVisit()
+    {
+        if (_battle == null) return;
+        _battle = CoopEngine.ResolvePlayerVisit(_battle);
+        State.Notify();
+    }
+
+    private void HandleSetTarget(string enemyId)
+    {
+        if (_battle == null) return;
+        _battle = CoopEngine.SetTarget(_battle, enemyId);
+        State.Notify();
+    }
+
+    private void HandleActivatePowerUp(string id)
+    {
+        if (_battle == null) return;
+        _battle = CoopActions.Activate(_battle, id);
+        var def = CoopPowerUps.Get(id);
+        if (def != null) Toast.Show($"Activated {def.Icon} {def.Name}!");
+        State.Notify();
+    }
+
+    private void HandlePrepareEnemyTurn()
+    {
+        if (_battle == null) return;
+        _battle = CoopEngine.PrepareEnemyTurn(_battle);
+        State.Notify();
+    }
+
+    private void HandleApplyNextAttack()
+    {
+        if (_battle == null) return;
+        _battle = CoopEngine.ApplyNextEnemyAttack(_battle);
+        State.Notify();
+    }
+
+    private void HandleContinue()
+    {
+        if (_battle == null) return;
+        if (_battle.Phase == CoopPhase.Enemy && _battle.PendingEnemyAttacks.Count > 0)
+        {
+            HandleApplyNextAttack();
+        }
+        else if (_battle.Phase == CoopPhase.Enemy && _battle.PendingEnemyAttacks.Count == 0 && _battle.AwaitContinue)
+        {
+            _battle = CoopEngine.FinishEnemyTurn(_battle);
+            State.Notify();
+        }
+        else
+        {
+            _battle = CoopEngine.CloneWithPublic(_battle, awaitContinue: false);
+            State.Notify();
+        }
+    }
+
+    private void AfterResult()
+    {
+        if (_battle == null || _chapter == null || _level == null) { _battle = null; State.Notify(); return; }
+        if (_battle.Outcome == CoopOutcome.Victory)
+        {
+            foreach (var p in _partyPlayers)
+            {
+                var prog = p.CampaignProgress ?? new();
+                var chapterId = _chapter.Id;
+                var currentCleared = prog.Chapters?.GetValueOrDefault(chapterId) ?? 0;
+                if (_level.LevelId > currentCleared)
+                {
+                    prog.Chapters ??= new();
+                    prog.Chapters[chapterId] = _level.LevelId;
+                    prog.HighestLevelBeaten = Math.Max(prog.HighestLevelBeaten, _level.LevelId);
+                    if (!string.IsNullOrEmpty(_level.RewardPowerUp) && !prog.UnlockedPowerUps.Contains(_level.RewardPowerUp))
+                        prog.UnlockedPowerUps.Add(_level.RewardPowerUp);
+                    p.CampaignProgress = prog;
+                }
+                var xp = CoopClasses.CoopXpForBattle(_battle.Stats, true);
+                if (xp > 0)
+                {
+                    p.Xp += xp;
+                    var (xpRem, level) = GameLogic.LevelFromXp(p.Xp, State.Settings);
+                    var (reconciled, newlyUnlocked) = CoopClasses.ReconcilePassives(p.CoopProgress, level);
+                    p.CoopProgress = reconciled;
+                }
+            }
+            _ = State.SetPlayers(State.Players);
+        }
+        _battle = null;
+        State.Notify();
+    }
+
+    private void RetryBattle()
+    {
+        if (_chapter == null || _level == null) { _battle = null; State.Notify(); return; }
+        _battle = CoopEngine.StartBattle(_level, _partyPlayers, State.Settings, _chapter.Id);
+        State.Notify();
+    }
+
+    private void QuitBattle()
+    {
+        _battle = null;
+        State.Notify();
+    }
+}

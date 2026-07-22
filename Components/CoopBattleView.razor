@@ -1,0 +1,198 @@
+@using dart_counter.Models
+@using dart_counter.Logic
+@using dart_counter.Services
+@inject GameStateService State
+
+<div class="coop-battle">
+    @if (Battle.Phase == CoopPhase.Player)
+    {
+        <div class="coop-party-hp">
+            <div class="row between">
+                <span style="font-weight:700;">Party HP</span>
+                <span>@Battle.PartyHp / @Battle.PartyMaxHp</span>
+            </div>
+            <div class="hp-bar"><div style="width:@(Battle.PartyMaxHp > 0 ? Battle.PartyHp * 100 / Battle.PartyMaxHp : 0)%;background:#22c55e;"></div></div>
+        </div>
+
+        <div class="coop-thrower">
+            <span class="avatar" style="background:@CurrentPlayer?.Color;">@GameLogic.Initials(CurrentPlayer?.Name ?? "?")</span>
+            <div>
+                <div style="font-weight:700;">@CurrentPlayer?.Name's turn</div>
+                <div class="muted small">Visit @Battle.VisitNumber · Dart @(Battle.Darts.Count + 1)/3</div>
+            </div>
+            <div class="charge-orb" title="Power-up charge">
+                <div class="charge-fill" style="height:@(CurrentPlayer != null ? CurrentPlayer.PowerUpCharge * 100 / Math.Max(1, Settings.PowerUpScaling.ChargeMax) : 0)%;"></div>
+            </div>
+        </div>
+
+        <div class="coop-enemies">
+            @for (int i = 0; i < Battle.Enemies.Count; i++)
+            {
+                var e = Battle.Enemies[i];
+                <div class="enemy-card @(e.Defeated ? "defeated" : "") @(i == Battle.TargetIdx && !e.Defeated ? "targeted" : "")" @onclick='() => OnSetTarget(e.Id)'>
+                    <div class="enemy-name">@e.Name</div>
+                    @if (e.Defeated)
+                    {
+                        <div class="muted">Defeated</div>
+                    }
+                    else
+                    {
+                        <div class="hp-bar small"><div style="width:@(e.MaxHp > 0 ? e.Hp * 100 / e.MaxHp : 0)%;background:#ef4444;"></div></div>
+                        <div class="muted small">@e.Hp/@e.MaxHp HP · Armor @e.Armor</div>
+                        @if (e.Shields.Count > 0)
+                        {
+                            <div class="shield-badges">
+                                @foreach (var s in e.Shields)
+                                {
+                                    <span class="shield-badge">🛡️ @CoopShields.DescribeShield(s)</span>
+                                }
+                            </div>
+                        }
+                        @if (e.FrozenTurns > 0) { <span class="status-badge">❄️ @e.FrozenTurns</span> }
+                        @if (e.VulnerableTurns > 0) { <span class="status-badge">⏳ @e.VulnerableTurns</span> }
+                        @if (e.DistractedTurns > 0) { <span class="status-badge">🎯 -@((int)(e.DistractAmount * 100))%</span> }
+                    }
+                </div>
+            }
+        </div>
+
+        @if (Battle.Darts.Count > 0)
+        {
+            <div class="coop-darts">
+                @foreach (var d in Battle.Darts)
+                {
+                    <span class="dart-chip">@d.Label (@d.Value)</span>
+                }
+            </div>
+        }
+
+        @if (Battle.ResolvedDarts.Count > 0 && Battle.Darts.Count == 3)
+        {
+            <div class="coop-visit-summary">
+                <h4>Visit Summary</h4>
+                @foreach (var r in Battle.ResolvedDarts)
+                {
+                    <div class="resolved-dart">
+                        <span>@r.Dart.Label</span>
+                        @if (r.Kind == "shield_break") { <span class="muted">Broke shield: @r.ShieldTarget</span> }
+                        else if (r.Kind == "miss") { <span class="muted">Missed (shield still up)</span> }
+                        else if (r.Kind == "defeated") { <span style="color:#22c55e;">Defeated @r.EnemyName! (@r.Damage dmg)</span> }
+                        else { <span>@r.Damage dmg → @r.EnemyName (@r.HpAfter HP)</span> }
+                    </div>
+                }
+                <button class="btn-primary" @onclick="OnResolveVisit">Continue</button>
+            </div>
+        }
+        else
+        {
+            <div class="coop-dart-input">
+                <div class="dart-grid">
+                    @for (int n = 1; n <= 20; n++)
+                    {
+                        var baseNum = n;
+                        <button class="dart-btn" @onclick='() => OnAddDart(baseNum, 1, null, false)'>@baseNum</button>
+                    }
+                </div>
+                <div class="dart-mult-row">
+                    <button class="dart-btn mult" @onclick='() => OnAddDart(20, 3, "T20", false)'>T20</button>
+                    <button class="dart-btn mult" @onclick='() => OnAddDart(20, 2, "D20", false)'>D20</button>
+                    <button class="dart-btn mult" @onclick='() => OnAddDart(25, 1, "25", false)'>25</button>
+                    <button class="dart-btn bull" @onclick='() => OnAddDart(50, 2, "Bull", true)'>Bull</button>
+                    <button class="dart-btn miss" @onclick='() => OnAddDart(0, 1, "Miss", false)'>Miss</button>
+                </div>
+                <div class="row" style="gap:8px;margin-top:8px;">
+                    @if (Battle.Darts.Count > 0)
+                    {
+                        <button class="btn-sm" @onclick="OnUndoDart">↩ Undo</button>
+                    }
+                </div>
+            </div>
+
+            @if (CurrentPlayer != null)
+            {
+                var availablePus = CoopPowerUps.UnlockedFor(Battle.Players.Select(p => State.Players.FirstOrDefault(pl => pl.Id == p.Id)?.CampaignProgress).FirstOrDefault());
+                <div class="coop-powerups">
+                    <div class="muted small">Power-ups:</div>
+                    <div class="pu-list">
+                        @foreach (var puId in availablePus)
+                        {
+                            var def = CoopPowerUps.Get(puId);
+                            if (def == null) continue;
+                            var canUse = CoopActions.CanActivate(Battle, puId);
+                            <button class="pu-btn @(!canUse ? "disabled" : "")" disabled="@(!canUse)" @onclick='() => OnActivatePowerUp(puId)'>
+                                <span style="font-size:18px;">@def.Icon</span>
+                                <span>@def.Name</span>
+                                <span class="muted small">@def.Cost⚡</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        }
+
+        <button class="btn-sm" @onclick="OnQuit" style="margin-top:12px;">Quit Battle</button>
+    }
+    else if (Battle.Phase == CoopPhase.Enemy)
+    {
+        <div class="coop-enemy-phase">
+            <h3>Enemy Phase</h3>
+            @if (Battle.FrozenEnemiesThisRound.Count > 0 && Battle.PendingEnemyAttacks.Count == 0 && !Battle.AwaitContinue)
+            {
+                <div class="frozen-popup">
+                    <div style="font-size:32px;">❄️</div>
+                    <p>Enemies frozen this round:</p>
+                    @foreach (var f in Battle.FrozenEnemiesThisRound)
+                    {
+                        <div>@f.Name (@f.FrozenTurns turns left)</div>
+                    }
+                    <button class="btn-primary" @onclick="OnContinue">Continue</button>
+                </div>
+            }
+            else if (Battle.PendingEnemyAttacks.Count > 0 || Battle.AwaitContinue)
+            {
+                <div class="enemy-attack-list">
+                    @foreach (var a in Battle.AppliedEnemyAttacks)
+                    {
+                        <div class="attack-step">
+                            <span>@a.EnemyName</span>
+                            <span>@a.Dart.Label</span>
+                            <span style="color:#ef4444;">-@a.Damage</span>
+                            <span class="muted">Party HP: @a.PartyHpAfter</span>
+                        </div>
+                    }
+                </div>
+                @if (Battle.PendingEnemyAttacks.Count > 0)
+                {
+                    <button class="btn-primary" @onclick="OnContinue">Next Attack</button>
+                }
+                else
+                {
+                    <button class="btn-primary" @onclick="OnContinue">Continue</button>
+                }
+            }
+            else
+            {
+                <div class="enemy-attack-list">
+                    <p class="muted">Enemies are preparing...</p>
+                    <button class="btn-primary" @onclick="OnPrepareEnemyTurn">Start Enemy Turn</button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public CampaignBattleState Battle { get; set; } = default!;
+    [Parameter] public Settings Settings { get; set; } = default!;
+    [Parameter] public Action<int, int, string?, bool> OnAddDart { get; set; } = default!;
+    [Parameter] public Action OnUndoDart { get; set; } = default!;
+    [Parameter] public Action OnResolveVisit { get; set; } = default!;
+    [Parameter] public Action<string> OnSetTarget { get; set; } = default!;
+    [Parameter] public Action<string> OnActivatePowerUp { get; set; } = default!;
+    [Parameter] public Action OnPrepareEnemyTurn { get; set; } = default!;
+    [Parameter] public Action OnApplyNextAttack { get; set; } = default!;
+    [Parameter] public Action OnContinue { get; set; } = default!;
+    [Parameter] public Action OnQuit { get; set; } = default!;
+
+    CoopPlayer? CurrentPlayer => Battle.Players.Count > Battle.PlayerTurnIdx ? Battle.Players[Battle.PlayerTurnIdx] : null;
+}

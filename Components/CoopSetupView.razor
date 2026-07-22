@@ -1,0 +1,148 @@
+@using dart_counter.Models
+@using dart_counter.Logic
+@using dart_counter.Services
+@inject GameStateService State
+@inject ToastService Toast
+
+<div class="coop-setup">
+    <h2>Co-op Campaign</h2>
+    <p class="muted">Gather your party and fight through chapters of enemies. Each player throws darts to deal damage. Break shields with the right segments, use power-ups, and defeat the boss!</p>
+
+    @if (_selectedPlayers.Count == 0)
+    {
+        <div class="card">
+            <h3>Select Your Party</h3>
+            <p class="muted small">Choose 1-4 players to bring into battle.</p>
+            <div class="player-select-grid">
+                @foreach (var p in State.Players)
+                {
+                    <button class="player-select-btn @(_selectedPlayers.Contains(p.Id) ? "selected" : "")" @onclick='() => TogglePlayer(p.Id)'>
+                        <span class="avatar" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
+                        <span>@p.Name</span>
+                        @if (_selectedPlayers.Contains(p.Id)) { <span class="check">✓</span> }
+                    </button>
+                }
+            </div>
+            @if (State.Players.Count == 0)
+            {
+                <div class="empty">No players yet. Add players in the Players tab first.</div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="row between">
+                <h3>Party (@_selectedPlayers.Count)</h3>
+                <button class="btn-sm" @onclick="ClearParty">Edit</button>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:wrap;">
+                @foreach (var id in _selectedPlayers)
+                {
+                    var p = State.Players.First(x => x.Id == id);
+                    <span class="avatar" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
+                    <span>@p.Name</span>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Choose Your Class</h3>
+            <p class="muted small">Each party member picks a class. Classes grant team-wide passive bonuses.</p>
+            @foreach (var p in State.Players.Where(x => _selectedPlayers.Contains(x.Id)))
+            {
+                <div class="coop-class-row">
+                    <span class="avatar small" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
+                    <span style="font-weight:600;">@p.Name</span>
+                    <div class="row" style="gap:4px;">
+                        @foreach (var cls in CoopClasses.All)
+                        {
+                            <button class="class-btn @((p.CoopProgress?.ClassId ?? CoopClassId.Warrior) == cls.Id ? "selected" : "")" @onclick='() => SelectClass(p, cls.Id)'>
+                                <span style="font-size:18px;">@cls.Icon</span>
+                                <span>@cls.Name</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="card">
+            <h3>Select a Chapter</h3>
+            @for (int ci = 0; ci < CampaignChapters.All.Count; ci++)
+            {
+                var chapter = CampaignChapters.All[ci];
+                var unlocked = CampaignChapters.IsChapterUnlocked(ci, GetProgress());
+                <div class="chapter-card @(!unlocked ? "locked" : "")" style="--chapter-accent: @chapter.Theme.Accent;">
+                    <div class="chapter-header" style="background: @chapter.Theme.Background;">
+                        <h3>@chapter.Name</h3>
+                        <div class="muted">@chapter.Subtitle</div>
+                    </div>
+                    @if (unlocked)
+                    {
+                        <p class="muted small" style="margin:8px 0;">@chapter.Intro</p>
+                        <div class="level-list">
+                            @for (int li = 0; li < chapter.Levels.Count; li++)
+                            {
+                                var level = chapter.Levels[li];
+                                var cleared = IsLevelCleared(chapter.Id, level.LevelId);
+                                <button class="level-btn @(cleared ? "cleared" : "")" @onclick='() => StartBattle(chapter, level)'>
+                                    <span>@(level.IsBoss ? "👑" : "⚔️") @level.Name</span>
+                                    @if (cleared) { <span class="check">✓</span> }
+                                    <span class="muted small">@level.Enemies.Count enemies</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="locked-msg">🔒 Clear the previous chapter to unlock.</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Action<CampaignChapter, CampaignLevel, List<Player>> OnStartBattle { get; set; } = default!;
+    private List<string> _selectedPlayers = new();
+
+    PlayerCampaignProgress? GetProgress()
+    {
+        var firstPlayer = State.Players.FirstOrDefault(p => _selectedPlayers.Contains(p.Id));
+        return firstPlayer?.CampaignProgress;
+    }
+
+    bool IsLevelCleared(string chapterId, int levelId)
+    {
+        var prog = GetProgress();
+        var cleared = prog?.Chapters?.GetValueOrDefault(chapterId) ?? 0;
+        return levelId <= cleared;
+    }
+
+    void TogglePlayer(string id)
+    {
+        if (_selectedPlayers.Contains(id))
+            _selectedPlayers.Remove(id);
+        else if (_selectedPlayers.Count < 4)
+            _selectedPlayers.Add(id);
+        State.Notify();
+    }
+
+    void ClearParty() { _selectedPlayers.Clear(); State.Notify(); }
+
+    void SelectClass(Player p, CoopClassId classId)
+    {
+        p.CoopProgress ??= CoopClasses.DefaultCoopProgress();
+        p.CoopProgress = CoopClasses.SelectClass(p.CoopProgress, classId);
+        _ = State.SetPlayers(State.Players);
+        State.Notify();
+    }
+
+    void StartBattle(CampaignChapter chapter, CampaignLevel level)
+    {
+        var party = State.Players.Where(p => _selectedPlayers.Contains(p.Id)).ToList();
+        OnStartBattle(chapter, level, party);
+    }
+}
