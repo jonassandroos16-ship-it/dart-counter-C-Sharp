@@ -1,3 +1,8 @@
+@inject GameStateService State
+@inject ToastService Toast
+@inject SoundService Sound
+@using dart_counter.Logic
+
 @if (_showGameOver && _game != null)
 {
     <div class="modal-bg" @onclick="QuitGame">
@@ -11,6 +16,10 @@
                     <div style="font-size:24px;font-weight:700;color:var(--accent);">@winner?.Name</div>
                 </div>
             }
+            @if (_game.Tied && _game.TiedPlayers != null)
+            {
+                <div style="text-align:center;margin-bottom:12px;color:var(--accent);font-weight:700;">Tie between @string.Join(", ", _game.TiedPlayers.Select(id => _game.Players.FirstOrDefault(p => p.Id == id)?.Name))</div>
+            }
             <div class="list">
                 @foreach (var p in _game.Players.OrderByDescending(p => p.LegsWon).ThenByDescending(p => p.Visits.Sum(v => v.Scored)))
                 {
@@ -20,14 +29,9 @@
                             <span style="font-weight:600;">@p.Name</span>
                         </div>
                         <div class="muted small">
-                            @if (_game.Atc)
-                            {
-                                <text>@p.DartsThrown darts</text>
-                            }
-                            else
-                            {
-                                <text>@GameLogic.VisitAvgStatic(p).ToString("F1") avg · @p.LegsWon legs</text>
-                            }
+                            @if (_game.Atc) { <text>@p.DartsThrown darts</text> }
+                            else if (_game.IsBattle()) { <text>@(p.DamageDealt ?? 0) dmg</text> }
+                            else { <text>@GameLogic.VisitAvgStatic(p).ToString("F1") avg · @p.LegsWon legs</text> }
                         </div>
                     </div>
                 }
@@ -38,98 +42,191 @@
     return;
 }
 
+@if (_showShowdown && _game != null)
+{
+    <div class="showdown-bg" @onclick="CloseShowdown">
+        <div class="showdown-header">
+            <div class="sd-mode-name">@(GameModes.Modes.ContainsKey(_game.Mode) ? GameModes.Modes[_game.Mode].Label : _game.Mode)</div>
+            <div class="sd-tagline">Aim. Score. Conquer.</div>
+            <div class="sd-meta-row">
+                <span class="sd-chip sd-chip-accent">@_game.Players.Count players</span>
+                @if (_game.LegsBestOf > 1) { <span class="sd-chip">Best of @_game.LegsBestOf</span> }
+                @if (_game.DoubleOut) { <span class="sd-chip">Double Out</span> }
+                @if (_game.PowerUpsEnabled) { <span class="sd-chip">Power-Ups</span> }
+                @if (_game.TeamMode) { <span class="sd-chip">Team Mode</span> }
+            </div>
+        </div>
+        <div class="showdown-grid @(_game.Players.Count == 2 ? "showdown-cols-2" : _game.Players.Count == 3 ? "showdown-cols-3" : "showdown-cols-4")">
+            @foreach (var gp in _game.Players)
+            {
+                var srcPlayer = State.Players.FirstOrDefault(p => p.Id == gp.Id);
+                <div class="showdown-card">
+                    @if (srcPlayer != null && srcPlayer.Level > 1)
+                    {
+                        <div class="sd-crown">Lv @srcPlayer.Level</div>
+                    }
+                    <div class="sd-solo-avatar" style="background:@gp.Color;">@GameLogic.Initials(gp.Name)</div>
+                    <div class="sd-name">@gp.Name</div>
+                    <div class="sd-accents">
+                        @if (srcPlayer != null)
+                        {
+                            <span class="sd-acc sd-acc-lvl">Lv @srcPlayer.Level</span>
+                            @if (!string.IsNullOrEmpty(srcPlayer.SelectedTitle))
+                            {
+                                var t = Titles.GetInfo(srcPlayer.SelectedTitle, State.Settings.CustomTitles);
+                                if (t != null) { <span class="sd-acc sd-acc-title">@(t.Icon) @t.Name</span> }
+                            }
+                            @if (!string.IsNullOrEmpty(srcPlayer.SelectedBadge))
+                            {
+                                var b = Badges.GetInfo(srcPlayer.SelectedBadge);
+                                if (b != null) { <span class="sd-acc sd-acc-badge">@(b.Icon)</span> }
+                            }
+                            @if (srcPlayer.PowerUps?.Active != null)
+                            {
+                                var pu = PowerUps.GetInfo(srcPlayer.PowerUps.Active);
+                                if (pu != null) { <span class="sd-acc sd-acc-pu">@(pu.Icon) @pu.Name</span> }
+                            }
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="showdown-vs">VS</div>
+        <div class="showdown-tap">Tap to start</div>
+    </div>
+    return;
+}
+
 @if (_showDartboard && _game != null)
 {
     var player = _game.Players[_game.CurrentIdx];
-    <div class="play-view">
-        <div class="play-header">
-            <div class="row between" style="margin-bottom:12px;">
+    var dartsThisVisit = _game.Darts ?? new();
+    var maxDarts = (player._oneDartNext ? 1 : 3) + (_game.Players[_game.CurrentIdx].PowerUpId == "pu_fourth_dart" && _game.Players[_game.CurrentIdx].PowerUpUsed == true && dartsThisVisit.Count >= 3 ? 1 : 0);
+    <div class="view-noscroll">
+        <div class="play-header" style="flex-shrink:0;">
+            <div class="row between" style="margin-bottom:8px;">
                 <button class="btn sm" @onclick="QuitGame">← Quit</button>
                 <div class="pill">@(GameModes.Modes.ContainsKey(_game.Mode) ? GameModes.Modes[_game.Mode].Label : _game.Mode)</div>
             </div>
         </div>
 
-        <div class="players-strip">
-            @foreach (var p in _game.Players)
+        @if (_game.IsBattle())
+        {
+            <div class="players-strip" style="flex-shrink:0;">
+                @foreach (var p in _game.Players)
+                {
+                    <div class="player-card-mini @(p.Id == player.Id ? "active" : "")">
+                        <div class="row" style="gap:6px;align-items:center;">
+                            <span class="avatar sm" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
+                            <span style="font-weight:600;font-size:12px;">@p.Name</span>
+                        </div>
+                        <div style="font-size:20px;font-weight:800;margin-top:2px;color:@(p.Hp <= 0 ? "var(--danger)" : "var(--text)");">@(p.Hp ?? 0) HP</div>
+                        <div class="bo-hp-track" style="height:8px;margin-top:2px;">
+                            <div class="bo-hp-fill" style="width:@(Math.Max(0, (int)((double)(p.Hp ?? 0) / Math.Max(1, p.MaxHp ?? 1) * 100)))%;background:@(p.Hp <= 0 ? "var(--danger)" : p.Color);"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="players-strip" style="flex-shrink:0;">
+                @foreach (var p in _game.Players)
+                {
+                    <div class="player-card-mini @(p.Id == player.Id ? "active" : "")">
+                        <div class="row" style="gap:6px;align-items:center;">
+                            <span class="avatar sm" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
+                            <span style="font-weight:600;font-size:12px;">@p.Name</span>
+                        </div>
+                        <div style="font-size:24px;font-weight:800;margin-top:2px;">
+                            @if (_game.Atc) { @GameModes.AtcLabel(p.Visits.Sum(v => v.Hits)) }
+                            else if (_game.IsKiller()) { <text>❤️@(p.Lives ?? 0)</text> }
+                            else { @p.Score }
+                        </div>
+                        @if (_game.LegsBestOf > 1 && !_game.Atc && !_game.Party) { <div class="muted" style="font-size:10px;">Legs: @p.LegsWon</div> }
+                        @if (_game.IsKiller() && (p.KillerHits ?? 0) >= 5) { <div style="font-size:10px;color:var(--accent);font-weight:700;">KILLER</div> }
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="current-visit" style="flex-shrink:0;">
+            <div style="text-align:center;margin-bottom:4px;">
+                <div class="muted" style="font-size:12px;">@(player.Name)'s turn</div>
+                @if (player._surgeNext && !player._surgeArmed) { <div style="font-size:12px;color:var(--accent);font-weight:700;">⚡ Surge active!</div> }
+                @if (player._crippledNext) { <div style="font-size:12px;color:#f59e0b;font-weight:700;">🦾 Crippled — 50% score</div> }
+                @if (player._frozenNext) { <div style="font-size:12px;color:#38bdf8;font-weight:700;">❄️ Frozen — visit skipped</div> }
+                @if (player._bullseyeFrenzy) { <div style="font-size:12px;color:var(--accent);font-weight:700;">🐂 Bullseye Frenzy!</div> }
+                @if (player._hotStreak) { <div style="font-size:12px;color:#f59e0b;font-weight:700;">🔥 Hot Streak!</div> }
+                @if (player._shieldTurns > 0) { <div style="font-size:12px;color:#38bdf8;font-weight:700;">🏰 Shield (@player._shieldTurns turns)</div> }
+                @if (!_game.Atc && !_game.Practice && !_game.Party && !_game.IsKiller() && !_game.IsBattle() && player.Score > 0)
+                {
+                    var hint = CheckoutHint(player.Score);
+                    if (!string.IsNullOrEmpty(hint)) { <div class="checkout-hint">Checkout: @hint</div> }
+                }
+            </div>
+            <div class="dart-slots">
+                @for (int i = 0; i < maxDarts; i++)
+                {
+                    <div class="dart-slot @(i < dartsThisVisit.Count ? "filled" : "")">
+                        @if (i < dartsThisVisit.Count)
+                        {
+                            <span class="dart-label">@dartsThisVisit[i].Label</span>
+                            <span class="dart-value">@dartsThisVisit[i].Value</span>
+                        }
+                        else { <span class="muted" style="font-size:11px;">D@(i+1)</span> }
+                    </div>
+                }
+            </div>
+            @if (dartsThisVisit.Count > 0)
             {
-                <div class="player-card-mini @(p.Id == player.Id ? "active" : "")">
-                    <div class="row" style="gap:6px;align-items:center;">
-                        <span class="avatar sm" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
-                        <span style="font-weight:600;font-size:14px;">@p.Name</span>
-                    </div>
-                    <div style="font-size:28px;font-weight:800;margin-top:4px;">
-                        @if (_game.Atc)
-                        {
-                            @GameModes.AtcLabel(p.Visits.Sum(v => v.Hits))
-                        }
-                        else
-                        {
-                            @p.Score
-                        }
-                    </div>
-                    @if (_game.LegsBestOf > 1 && !_game.Atc)
+                <div class="row" style="gap:6px;justify-content:center;margin-top:4px;">
+                    <button class="btn sm" @onclick="UndoDart">Undo</button>
+                    @if (dartsThisVisit.Count >= (player._oneDartNext ? 1 : 3))
                     {
-                        <div class="muted small">Legs: @p.LegsWon</div>
+                        <button class="btn primary sm" @onclick="SubmitVisit">Enter Visit</button>
                     }
                 </div>
             }
         </div>
 
-        <div class="current-visit">
-            <div style="text-align:center;margin-bottom:12px;">
-                <div class="muted small">@(player.Name)'s turn</div>
-                @if (!_game.Atc && !_game.Practice && !_game.Party && player.Score > 0)
-                {
-                    var hint = CheckoutHint(player.Score);
-                    if (!string.IsNullOrEmpty(hint))
-                    {
-                        <div class="checkout-hint">Checkout: @hint</div>
+        @if (_game.PowerUpsEnabled && player.PowerUpId != null && player.PowerUpUsed != true)
+        {
+            <div class="row" style="justify-content:center;flex-shrink:0;gap:8px;">
+                <div class="pu-orb" @onclick="ActivatePowerUp">
+                    @{
+                        var pu = PowerUps.GetInfo(player.PowerUpId);
+                        var charged = GameLogic.IsCharged(player, State.Settings);
+                        var pct = Math.Min(100, (int)((double)(player.PowerUpCharge ?? 0) / PowerUps.ChargesNeeded(player.PowerUpId, State.Settings) * 100));
                     }
-                }
-            </div>
-
-            <div class="dart-slots">
-                @for (int i = 0; i < 3; i++)
-                {
-                    <div class="dart-slot @(i < _currentDarts.Count ? "filled" : "")">
-                        @if (i < _currentDarts.Count)
-                        {
-                            <span class="dart-label">@_currentDarts[i].Label</span>
-                            <span class="dart-value">@_currentDarts[i].Value</span>
-                        }
-                        else
-                        {
-                            <span class="muted">Dart @(i + 1)</span>
-                        }
+                    <div class="pu-orb-circle @(charged ? "charged" : "")">
+                        <div class="pu-orb-fill" style="height:@(pct)%;"></div>
+                        <span style="position:relative;z-index:1;">@(pu?.Icon ?? "❓")</span>
                     </div>
-                }
+                    <div class="pu-orb-label">@(charged ? "TAP!" : $"{pct}%")</div>
+                </div>
             </div>
-
-            @if (_currentDarts.Count > 0)
-            {
-                <button class="btn sm" style="margin:8px auto;display:block;" @onclick="UndoDart">Undo Last Dart</button>
-            }
-        </div>
+        }
 
         <div class="dartboard-input">
-            <div class="multiplier-row" style="margin-bottom:8px;">
+            <div class="multiplier-row">
                 <button class="dart-btn sm @(_multiplier == 1 ? "active-mul" : "")" @onclick="() => SetMultiplier(1)">Single</button>
-                <button class="dart-btn dbl sm @(_multiplier == 2 ? "active-mul" : "")" @onclick="() => SetMultiplier(2)">Double</button>
-                <button class="dart-btn trpl sm @(_multiplier == 3 ? "active-mul" : "")" @onclick="() => SetMultiplier(3)">Triple</button>
+                <button class="dart-btn sm @(_multiplier == 2 ? "active-mul" : "")" @onclick="() => SetMultiplier(2)">Double</button>
+                <button class="dart-btn sm @(_multiplier == 3 ? "active-mul" : "")" @onclick="() => SetMultiplier(3)">Triple</button>
             </div>
             <div class="dartboard-grid">
                 @for (int n = 1; n <= 20; n++)
                 {
                     var num = n;
-                    <button class="dart-btn" @onclick="() => RecordDart(num, num.ToString())">@num</button>
+                    <button class="dart-btn" @onclick="() => RecordDart(num)">@num</button>
                 }
-                <button class="dart-btn bull" @onclick="RecordBull">Bull<br/><small>25</small></button>
-                <button class="dart-btn bullseye" @onclick="() => SetMultiplier(2)">★ x2<br/><small>Bullseye 50</small></button>
-                <button class="dart-btn miss" @onclick="RecordMiss">Miss<br/><small>0</small></button>
+                <button class="dart-btn bull" @onclick="RecordBull">Bull<small>25</small></button>
+                <button class="dart-btn bullseye" @onclick="RecordBullseye">★<small>50</small></button>
+                <button class="dart-btn miss" @onclick="RecordMiss">Miss<small>0</small></button>
             </div>
             @if (_multiplier != 1)
             {
-                <div style="text-align:center;margin-top:8px;font-size:13px;color:var(--accent);font-weight:600;">
+                <div style="text-align:center;margin-top:6px;font-size:13px;color:var(--accent);font-weight:600;">
                     Multiplier: @(_multiplier == 2 ? "Double" : "Triple") — tap a number
                 </div>
             }
@@ -146,19 +243,16 @@
             <h2>@modeDef.Label</h2>
             <button class="btn sm" @onclick="BackToModeSelect">← Back</button>
         </div>
-        <div class="card" style="margin-bottom:12px;">
+        <div class="card">
             <p class="muted">@modeDef.Desc</p>
             <ul class="rules-list">
-                @foreach (var rule in modeDef.Rules)
-                {
-                    <li>@rule</li>
-                }
+                @foreach (var rule in modeDef.Rules) { <li>@rule</li> }
             </ul>
         </div>
 
         @if (modeDef.Start > 0 && !modeDef.Party)
         {
-            <div class="card" style="margin-bottom:12px;">
+            <div class="card">
                 <div class="muted small" style="margin-bottom:8px;">Options</div>
                 <label class="row between" style="margin-bottom:8px;cursor:pointer;">
                     <span>Double Out (require double to finish)</span>
@@ -166,7 +260,7 @@
                 </label>
                 <div class="row" style="gap:8px;align-items:center;margin-bottom:8px;">
                     <span class="small">Best of</span>
-                    <select @bind="_legsBestOf" class="select" style="width:auto;">
+                    <select @bind="_legsBestOf" style="width:auto;">
                         <option value="1">1</option>
                         <option value="3">3</option>
                         <option value="5">5</option>
@@ -174,10 +268,34 @@
                     </select>
                     <span class="small">legs</span>
                 </div>
+                <label class="row between" style="margin-bottom:8px;cursor:pointer;">
+                    <span>Team Mode</span>
+                    <input type="checkbox" @bind="_teamMode" />
+                </label>
+                @if (_teamMode && _selectedPlayerIds.Count > 1)
+                {
+                    <div class="muted small" style="margin-bottom:6px;">Team Assignment:</div>
+                    @for (int i = 0; i < _selectedPlayerIds.Count; i++)
+                    {
+                        var idx = i;
+                        var pid = _selectedPlayerIds[i];
+                        var pname = State.Players.FirstOrDefault(p => p.Id == pid)?.Name ?? "?";
+                        <div class="row" style="gap:8px;margin-bottom:4px;">
+                            <span class="small" style="min-width:80px;">@pname</span>
+                            <select @bind="_teamAssignment[idx]" style="width:auto;">
+                                @for (int t = 0; t < 4; t++) { <option value="@t">@(GameModes.TeamNames[t])</option> }
+                            </select>
+                        </div>
+                    }
+                }
+                <label class="row between" style="cursor:pointer;">
+                    <span>Power-Ups</span>
+                    <input type="checkbox" @bind="_powerUpsEnabled" />
+                </label>
             </div>
         }
 
-        <div class="card" style="margin-bottom:12px;">
+        <div class="card">
             <div class="muted small" style="margin-bottom:8px;">Select Players</div>
             @if (State.Players.Count == 0)
             {
@@ -188,14 +306,10 @@
                 <button class="player-select-btn @(_selectedPlayerIds.Contains(p.Id) ? "selected" : "")" @onclick="() => TogglePlayer(p.Id)">
                     <span class="avatar sm" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
                     <span style="font-weight:600;">@p.Name</span>
-                    @if (_selectedPlayerIds.Contains(p.Id))
-                    {
-                        <span class="check">✓</span>
-                    }
+                    @if (_selectedPlayerIds.Contains(p.Id)) { <span class="check">✓</span> }
                 </button>
             }
         </div>
-
         <button class="btn primary block" @onclick="StartGame" disabled="@(_selectedPlayerIds.Count == 0)">Start Game</button>
     </div>
     return;
