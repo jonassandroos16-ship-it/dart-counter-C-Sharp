@@ -58,6 +58,15 @@
             @case "coop":
                 <CoopView />
                 break;
+            @case "dartlite":
+                <DartliteView />
+                break;
+            @case "multiplayer":
+                <MultiplayerView />
+                break;
+            @case "cards":
+                <CardDeckBuilderView />
+                break;
             @case "players":
                 <PlayersView />
                 break;
@@ -79,6 +88,15 @@
         </button>
         <button class="@(_view == "coop" ? "active" : "")" @onclick='() => SwitchView("coop")'>
             <span style="font-size:18px;">⚔️</span> Coop
+        </button>
+        <button class="@(_view == "dartlite" ? "active" : "")" @onclick='() => SwitchView("dartlite")'>
+            <span style="font-size:18px;">🎲</span> Dartlite
+        </button>
+        <button class="@(_view == "multiplayer" ? "active" : "")" @onclick='() => SwitchView("multiplayer")'>
+            <span style="font-size:18px;">🌐</span> Multiplayer
+        </button>
+        <button class="@(_view == "cards" ? "active" : "")" @onclick='() => SwitchView("cards")'>
+            <span style="font-size:18px;">🃏</span> Cards
         </button>
         <button class="@(_view == "players" ? "active" : "")" @onclick='() => SwitchView("players")'>
             <span style="font-size:18px;">👥</span> Players

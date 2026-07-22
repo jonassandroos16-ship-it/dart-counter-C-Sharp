@@ -30,6 +30,37 @@
             <span>Background Music</span>
             <input type="checkbox" @bind="State.Settings.Music" />
         </label>
+        <label class="field"><span>Music Volume: @((int)(State.Settings.MusicVolume * 100))%</span>
+            <input type="range" min="0" max="1" step="0.05" @bind="State.Settings.MusicVolume" />
+        </label>
+        <label class="field"><span>Start Screen Track</span>
+            <select @bind="State.Settings.MusicStartTrack">
+                <option value="start_bullseye_anthem">Bullseye Anthem</option>
+                <option value="start_180_hero">180 Hero</option>
+                <option value="start_oche_chronicle">Oche Chronicle</option>
+            </select>
+        </label>
+        <label class="field"><span>Setup Screen Track</span>
+            <select @bind="State.Settings.MusicSetupTrack">
+                <option value="setup_horizon">Horizon</option>
+                <option value="setup_neon_drive">Neon Drive</option>
+                <option value="setup_quiet_lobby">Quiet Lobby</option>
+            </select>
+        </label>
+        <label class="field"><span>Match Track</span>
+            <select @bind="State.Settings.MusicMatchTrack">
+                <option value="match_drive">Drive</option>
+                <option value="match_arena_pulse">Arena Pulse</option>
+                <option value="match_steady_hand">Steady Hand</option>
+            </select>
+        </label>
+        <label class="field"><span>Coop Track</span>
+            <select @bind="State.Settings.MusicCoopTrack">
+                <option value="coop_siege">Siege</option>
+                <option value="coop_battle_hymn">Battle Hymn</option>
+                <option value="coop_dungeon_crawl">Dungeon Crawl</option>
+            </select>
+        </label>
         <label class="field"><span>SFX Volume: @((int)(State.Settings.SfxVolume * 100))%</span>
             <input type="range" min="0" max="1" step="0.05" @bind="State.Settings.SfxVolume" />
         </label>

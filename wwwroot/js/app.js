@@ -2,6 +2,11 @@ window.dartCounter = {
   audioCtx: null,
   musicNode: null,
 
+  initSupabase(url, key) {
+    if (url) localStorage.setItem('dc_supabase_url', url);
+    if (key) localStorage.setItem('dc_supabase_anon_key', key);
+  },
+
   getCtx() {
     if (!this.audioCtx) {
       this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -136,6 +141,169 @@ window.dartCounter = {
       clearInterval(this.musicNode);
       this.musicNode = null;
     }
+  },
+
+  getDeviceId() {
+    let id = localStorage.getItem('dc_device_id');
+    if (!id) {
+      id = Math.random().toString(36).slice(2, 12);
+      localStorage.setItem('dc_device_id', id);
+    }
+    return id;
+  },
+
+  async mpCreateLobby(lobby) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return;
+      const sb = createClient(url, key);
+      await sb.from('mp_lobbies').insert({
+        id: lobby.id, code: lobby.code, name: lobby.name,
+        host_device_id: lobby.hostDeviceId, host_player_id: lobby.hostPlayerId,
+        status: lobby.status, created_at: lobby.createdAt, updated_at: lobby.updatedAt,
+      });
+    } catch(e) { console.warn('[mp] createLobby:', e.message); }
+  },
+
+  async mpJoinLobby(lobbyId, player, deviceId) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return;
+      const sb = createClient(url, key);
+      await sb.from('mp_lobby_players').insert({
+        lobby_id: lobbyId, device_id: deviceId,
+        player_id: player.id, player_name: player.name,
+        player_color: player.color, ready: false,
+      });
+    } catch(e) { console.warn('[mp] joinLobby:', e.message); }
+  },
+
+  async mpLeaveLobby(lobbyId, deviceId, playerId) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return;
+      const sb = createClient(url, key);
+      await sb.from('mp_lobby_players').delete()
+        .eq('lobby_id', lobbyId).eq('device_id', deviceId).eq('player_id', playerId);
+    } catch(e) {}
+  },
+
+  async mpDeleteLobby(lobbyId) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return;
+      const sb = createClient(url, key);
+      await sb.from('mp_lobbies').delete().eq('id', lobbyId);
+    } catch(e) {}
+  },
+
+  async mpSetReady(lobbyId, deviceId, playerId, ready) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return;
+      const sb = createClient(url, key);
+      await sb.from('mp_lobby_players').update({ ready })
+        .eq('lobby_id', lobbyId).eq('device_id', deviceId).eq('player_id', playerId);
+    } catch(e) {}
+  },
+
+  async mpFetchLobby(lobbyId) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return null;
+      const sb = createClient(url, key);
+      const { data } = await sb.from('mp_lobbies').select('*').eq('id', lobbyId).maybeSingle();
+      return data;
+    } catch(e) { return null; }
+  },
+
+  async mpFetchPlayers(lobbyId) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return [];
+      const sb = createClient(url, key);
+      const { data } = await sb.from('mp_lobby_players').select('*')
+        .eq('lobby_id', lobbyId).order('joined_at', { ascending: true });
+      return data || [];
+    } catch(e) { return []; }
+  },
+
+  async mpFetchOpenLobbies() {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return [];
+      const sb = createClient(url, key);
+      const { data } = await sb.from('mp_lobbies').select('*')
+        .eq('status', 'lobby').order('created_at', { ascending: false }).limit(50);
+      return data || [];
+    } catch(e) { return []; }
+  },
+
+  async mpFetchByCode(code) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return null;
+      const sb = createClient(url, key);
+      const { data } = await sb.from('mp_lobbies').select('*')
+        .eq('code', code.toUpperCase()).eq('status', 'lobby').maybeSingle();
+      return data;
+    } catch(e) { return null; }
+  },
+
+  async mpUpdateGameState(lobbyId, game) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return;
+      const sb = createClient(url, key);
+      await sb.from('mp_lobbies').update({
+        game_state: game, player_turn: game.currentIdx, updated_at: new Date().toISOString(),
+      }).eq('id', lobbyId);
+    } catch(e) {}
+  },
+
+  async mpStartGame(lobbyId, config, game) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return;
+      const sb = createClient(url, key);
+      await sb.from('mp_lobbies').update({
+        status: 'playing', game_config: config, game_state: game,
+        player_turn: game.currentIdx, updated_at: new Date().toISOString(),
+      }).eq('id', lobbyId);
+    } catch(e) {}
+  },
+
+  async mpSetStatus(lobbyId, status) {
+    try {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+      const url = localStorage.getItem('dc_supabase_url') || '';
+      const key = localStorage.getItem('dc_supabase_anon_key') || '';
+      if (!url || !key) return;
+      const sb = createClient(url, key);
+      await sb.from('mp_lobbies').update({ status, updated_at: new Date().toISOString() }).eq('id', lobbyId);
+    } catch(e) {}
   },
 
   drawDartboardHeatmap(canvasId, hitData) {

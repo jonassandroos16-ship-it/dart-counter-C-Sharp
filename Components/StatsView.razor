@@ -98,6 +98,59 @@
                 }
             </div>
 
+            @if (player.DartliteStats != null && player.DartliteStats.Runs > 0)
+            {
+                <div class="card" style="margin-top:12px;">
+                    <h3 style="margin-bottom:8px;">Dartlite Stats</h3>
+                    <div class="grid grid-3">
+                        <div class="stat"><div class="v">@player.DartliteStats.Runs</div><div class="l">Runs</div></div>
+                        <div class="stat"><div class="v">@player.DartliteStats.BestRound</div><div class="l">Best Round</div></div>
+                        <div class="stat"><div class="v">@player.DartliteStats.Kills</div><div class="l">Total Kills</div></div>
+                        <div class="stat"><div class="v">@player.DartliteStats.Battles</div><div class="l">Battles Won</div></div>
+                        <div class="stat"><div class="v">@player.DartliteStats.MiniBossesDefeated</div><div class="l">Mini-Bosses</div></div>
+                        <div class="stat"><div class="v">@player.DartliteStats.BossesDefeated</div><div class="l">Bosses</div></div>
+                        <div class="stat"><div class="v">@player.DartliteStats.TotalXp</div><div class="l">Total XP</div></div>
+                    </div>
+                    @if (player.DartliteStats.SeenTrinkets.Count > 0)
+                    {
+                        <h4 style="margin-top:12px;margin-bottom:6px;">Seen Trinkets (@player.DartliteStats.SeenTrinkets.Count)</h4>
+                        <div class="grid grid-3">
+                            @foreach (var tid in player.DartliteStats.SeenTrinkets)
+                            {
+                                var t = Trinkets.GetTrinket(tid);
+                                if (t == null) continue;
+                                <div class="stat" style="cursor:default;">
+                                    <div style="font-size:20px;">@t.Icon</div>
+                                    <div class="l">@t.Name</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (player.Cards != null && player.Cards.Values.SelectMany(c => c).Any())
+            {
+                <div class="card" style="margin-top:12px;">
+                    <h3 style="margin-bottom:8px;">Card Collection</h3>
+                    <div class="grid grid-3">
+                        @foreach (var kv in player.Cards)
+                        {
+                            foreach (var pc in kv.Value)
+                            {
+                                var def = CardDefinitions.ResolveCardDef(pc);
+                                if (def == null) continue;
+                                <div class="stat" style="border-left:3px solid @(CardDefinitions.CardRarityColor(def.Rarity));">
+                                    <div style="font-size:20px;">@def.Icon</div>
+                                    <div class="l">@def.Name</div>
+                                    @if (pc.UpgradeLevel > 0) { <div style="font-size:10px;color:var(--accent);">+@pc.UpgradeLevel</div> }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+
             <div class="card" style="margin-top:12px;">
                 <h3 style="margin-bottom:10px;">Titles (@player.UnlockedTitles.Count)</h3>
                 @if (player.UnlockedTitles.Count == 0)
