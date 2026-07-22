@@ -1,0 +1,251 @@
+@using dart_counter.Models
+@using dart_counter.Logic
+@using dart_counter.Services
+@inject GameStateService State
+@inject MultiplayerService MP
+@inject SoundService Sound
+@inject ToastService Toast
+
+<div class="view-scroll">
+    <h2 style="margin-bottom:16px;">Multiplayer</h2>
+
+    @if (_view == "menu")
+    {
+        <div class="card">
+            <h3>Create a Lobby</h3>
+            <label class="field"><span>Lobby Name</span>
+                <input @bind="_lobbyName" placeholder="My Game" />
+            </label>
+            <button class="btn primary block" @onclick="CreateLobby" disabled="@(string.IsNullOrWhiteSpace(_lobbyName))">Create Lobby</button>
+        </div>
+        <div class="card">
+            <h3>Join a Lobby</h3>
+            <label class="field"><span>Enter Code</span>
+                <input @bind="_joinCode" placeholder="ABCD" maxlength="4" style="text-transform:uppercase;" />
+            </label>
+            <button class="btn block" @onclick="JoinByCode" disabled="@(string.IsNullOrWhiteSpace(_joinCode))">Join by Code</button>
+        </div>
+        <div class="card">
+            <h3>Open Lobbies</h3>
+            <button class="btn sm" @onclick="RefreshLobbies">Refresh</button>
+            @if (_openLobbies.Count == 0)
+            {
+                <div class="empty">No open lobbies. Create one!</div>
+            }
+            else
+            {
+                @foreach (var lob in _openLobbies)
+                {
+                    <div class="list-item row between">
+                        <div>
+                            <div style="font-weight:600;">@lob.Name</div>
+                            <div class="muted small">Code: @lob.Code</div>
+                        </div>
+                        <button class="btn sm" @onclick="() => JoinLobby(lob.Id)">Join</button>
+                    </div>
+                }
+            }
+        </div>
+    }
+    else if (_view == "lobby" && _lobby != null)
+    {
+        <div class="row between" style="margin-bottom:16px;">
+            <h2>@_lobby.Name</h2>
+            <button class="btn sm" @onclick="LeaveLobby">← Leave</button>
+        </div>
+        <div class="card">
+            <div class="muted small">Lobby Code: <b>@_lobby.Code</b></div>
+            <div class="muted small">Share this code with friends to let them join.</div>
+        </div>
+        <div class="card">
+            <h3>Players (@_lobbyPlayers.Count)</h3>
+            @foreach (var lp in _lobbyPlayers)
+            {
+                <div class="list-item row between">
+                    <div class="row" style="gap:8px;align-items:center;">
+                        <span class="avatar sm" style="background:@lp.PlayerColor;">@GameLogic.Initials(lp.PlayerName)</span>
+                        <span style="font-weight:600;">@lp.PlayerName</span>
+                    </div>
+                    <div>
+                        @if (lp.Ready) { <span style="color:var(--accent);font-weight:600;">✓ Ready</span> }
+                        else { <span class="muted">Not Ready</span> }
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="card">
+            <h3>Game Settings</h3>
+            <label class="field"><span>Mode</span>
+                <select @bind="_gameMode">
+                    @foreach (var m in GameModes.Modes) { <option value="@m.Key">@m.Value.Label</option> }
+                </select>
+            </label>
+            <label class="row between" style="margin-bottom:8px;cursor:pointer;">
+                <span>Double Out</span>
+                <input type="checkbox" @bind="_doubleOut" />
+            </label>
+            <div class="row" style="gap:8px;align-items:center;margin-bottom:8px;">
+                <span class="small">Best of</span>
+                <select @bind="_legsBestOf" style="width:auto;">
+                    <option value="1">1</option>
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                </select>
+                <span class="small">legs</span>
+            </div>
+            <label class="row between" style="cursor:pointer;">
+                <span>Power-Ups</span>
+                <input type="checkbox" @bind="_powerUps" />
+            </label>
+        </div>
+        @if (_isHost)
+        {
+            <button class="btn primary block" @onclick="StartMultiplayerGame" disabled="@(!_lobbyPlayers.Any(p => p.Ready))">Start Game</button>
+        }
+        else
+        {
+            <button class="btn primary block" @onclick="ToggleReady">@(_myReady ? "Unready" : "Ready Up")</button>
+        }
+    }
+    else if (_view == "game" && _lobby != null)
+    {
+        <div class="row between" style="margin-bottom:8px;">
+            <button class="btn sm" @onclick="LeaveGame">← Leave</button>
+            <div class="pill">@_lobby.Name</div>
+        </div>
+        @if (_lobby.GameState != null)
+        {
+            var game = _lobby.GameState;
+            <div class="players-strip" style="flex-shrink:0;">
+                @foreach (var p in game.Players)
+                {
+                    <div class="player-card-mini @(p.Id == game.Players[game.CurrentIdx].Id ? "active" : "")">
+                        <div class="row" style="gap:6px;align-items:center;">
+                            <span class="avatar sm" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
+                            <span style="font-weight:600;font-size:12px;">@p.Name</span>
+                        </div>
+                        <div style="font-size:24px;font-weight:800;">@p.Score</div>
+                    </div>
+                }
+            </div>
+            @if (MP.IsMyTurn(_lobbyPlayers, game))
+            {
+                <div class="muted" style="text-align:center;">Your turn!</div>
+            }
+            else
+            {
+                <div class="muted" style="text-align:center;">Waiting for @(game.Players[game.CurrentIdx].Name)...</div>
+            }
+        }
+    }
+</div>
+
+@code {
+    private string _view = "menu";
+    private string _lobbyName = "";
+    private string _joinCode = "";
+    private Lobby? _lobby;
+    private List<LobbyPlayer> _lobbyPlayers = new();
+    private List<Lobby> _openLobbies = new();
+    private bool _isHost => _lobby != null && _lobby.HostDeviceId == MP.DeviceId;
+    private bool _myReady => _lobbyPlayers.Any(p => p.DeviceId == MP.DeviceId && p.Ready);
+    private string _gameMode = "501";
+    private bool _doubleOut = true;
+    private int _legsBestOf = 3;
+    private bool _powerUps = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += StateOnChange;
+        await RefreshLobbies();
+    }
+
+    void StateOnChange() => InvokeAsync(StateHasChanged);
+
+    async Task CreateLobby()
+    {
+        var hostPlayer = State.Players.FirstOrDefault();
+        if (hostPlayer == null) { Toast.Show("Add a player first!"); return; }
+        _lobby = await MP.CreateLobby(_lobbyName, hostPlayer);
+        if (_lobby == null) { Toast.Show("Failed to create lobby."); return; }
+        await MP.JoinLobby(_lobby.Id, hostPlayer);
+        _view = "lobby";
+        await RefreshLobby();
+        State.Notify();
+    }
+
+    async Task JoinByCode()
+    {
+        var lobby = await MP.FetchLobbyByCode(_joinCode);
+        if (lobby == null) { Toast.Show("Lobby not found."); return; }
+        await JoinLobby(lobby.Id);
+    }
+
+    async Task JoinLobby(string lobbyId)
+    {
+        var player = State.Players.FirstOrDefault();
+        if (player == null) { Toast.Show("Add a player first!"); return; }
+        var ok = await MP.JoinLobby(lobbyId, player);
+        if (!ok) { Toast.Show("Failed to join."); return; }
+        _lobby = await MP.FetchLobby(lobbyId);
+        _view = "lobby";
+        await RefreshLobby();
+        State.Notify();
+    }
+
+    async Task RefreshLobby()
+    {
+        if (_lobby == null) return;
+        _lobbyPlayers = await MP.FetchLobbyPlayers(_lobby.Id);
+        _lobby = await MP.FetchLobby(_lobby.Id);
+        State.Notify();
+    }
+
+    async Task RefreshLobbies()
+    {
+        _openLobbies = await MP.FetchOpenLobbies();
+        State.Notify();
+    }
+
+    async Task ToggleReady()
+    {
+        if (_lobby == null) return;
+        var player = State.Players.FirstOrDefault();
+        if (player == null) return;
+        await MP.SetPlayerReady(_lobby.Id, player.Id, !_myReady);
+        await RefreshLobby();
+    }
+
+    async Task LeaveLobby()
+    {
+        if (_lobby == null) return;
+        var player = State.Players.FirstOrDefault();
+        if (player != null) await MP.LeaveLobby(_lobby.Id, player.Id);
+        if (_isHost) await MP.DeleteLobby(_lobby.Id);
+        _lobby = null;
+        _lobbyPlayers.Clear();
+        _view = "menu";
+        await RefreshLobbies();
+        State.Notify();
+    }
+
+    async Task StartMultiplayerGame()
+    {
+        if (_lobby == null) return;
+        var playerIds = _lobbyPlayers.Select(p => p.PlayerId).ToList();
+        var players = State.Players.Where(p => playerIds.Contains(p.Id)).ToList();
+        var game = GameLogic.CreateGame(_gameMode, playerIds, State.Players, _doubleOut, _legsBestOf, false, null, _powerUps, State.Settings);
+        var config = new GameConfig { Mode = _gameMode, DoubleOut = _doubleOut, Legs = _legsBestOf, PowerUps = _powerUps };
+        await MP.StartGame(_lobby.Id, config, game);
+        _view = "game";
+        State.Notify();
+    }
+
+    void LeaveGame()
+    {
+        _lobby = null;
+        _view = "menu";
+        _ = RefreshLobbies();
+        State.Notify();
+    }
+}

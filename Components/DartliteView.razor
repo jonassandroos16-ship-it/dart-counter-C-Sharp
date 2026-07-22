@@ -1,0 +1,323 @@
+@using dart_counter.Models
+@using dart_counter.Logic
+@using dart_counter.Services
+@inject GameStateService State
+@inject SoundService Sound
+@inject ToastService Toast
+
+@if (_run == null)
+{
+    <div class="view-scroll">
+        <h2 style="margin-bottom:16px;">Dartlite</h2>
+        <div class="card">
+            <p class="muted">A rogue-lite coop mode. Fight through endless rounds of enemies. Every 5th round is a mini-boss; every 10th round is a boss. After each round, choose a boon: heal, gain a stat, or get a random trinket. The run ends when the party dies.</p>
+        </div>
+        <div class="card">
+            <h3>Select Your Party</h3>
+            <p class="muted small">Choose 1-4 players.</p>
+            <div class="player-select-grid">
+                @foreach (var p in State.Players)
+                {
+                    <button class="player-select-btn @(_selectedPlayers.Contains(p.Id) ? "selected" : "")" @onclick="() => TogglePlayer(p.Id)">
+                        <span class="avatar" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
+                        <span>@p.Name</span>
+                        @if (_selectedPlayers.Contains(p.Id)) { <span class="check">✓</span> }
+                    </button>
+                }
+            </div>
+            @if (State.Players.Count == 0)
+            {
+                <div class="empty">No players yet. Add players in the Players tab first.</div>
+            }
+        </div>
+        @if (_selectedPlayers.Count > 0)
+        {
+            <div class="card">
+                <label class="row between" style="cursor:pointer;">
+                    <span>Card Mode (use cards instead of trinkets)</span>
+                    <input type="checkbox" @bind="_cardMode" />
+                </label>
+            </div>
+            <button class="btn primary block" @onclick="StartRun">Start Run</button>
+        }
+    </div>
+}
+else if (_run.Phase == DartlitePhase.GameOver)
+{
+    <div class="view-scroll">
+        <h2 style="text-align:center;margin-bottom:16px;">Run Over</h2>
+        <div class="card" style="text-align:center;">
+            <div style="font-size:48px;margin-bottom:8px;">💀</div>
+            <div style="font-size:20px;font-weight:700;">You reached Round @_run.Round</div>
+            <div class="muted" style="margin-top:8px;">@_run.Stats.EnemiesDefeated enemies defeated · @_run.Stats.XpGained XP gained</div>
+            @if (_run.Stats.BossesDefeated > 0) { <div class="muted" style="margin-top:4px;">@_run.Stats.BossesDefeated bosses defeated</div> }
+            @if (_run.Stats.MiniBossesDefeated > 0) { <div class="muted" style="margin-top:4px;">@_run.Stats.MiniBossesDefeated mini-bosses defeated</div> }
+        </div>
+        <div class="card">
+            <h3>Trinkets Collected</h3>
+            @if (_run.Trinkets.Count == 0) { <div class="muted small">None</div> }
+            else
+            {
+                <div class="grid grid-3">
+                    @foreach (var tid in _run.Trinkets)
+                    {
+                        var t = Trinkets.GetTrinket(tid);
+                        if (t == null) continue;
+                        <div class="stat" style="cursor:default;">
+                            <div style="font-size:24px;">@t.Icon</div>
+                            <div class="l">@t.Name</div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        <button class="btn primary block" @onclick="EndRun">Back to Setup</button>
+    </div>
+}
+else if (_run.Phase == DartlitePhase.Setup)
+{
+    <div class="view-scroll">
+        <div class="row between" style="margin-bottom:16px;">
+            <h2>Dartlite — Round @_run.Round</h2>
+            <button class="btn sm" @onclick="QuitRun">Quit</button>
+        </div>
+        <div class="card">
+            <p class="muted">Ready for the next round.</p>
+            @if (_run.Round > 0)
+            {
+                <div class="muted small" style="margin-top:8px;">Cleared: @_run.Stats.RoundsCleared rounds · @_run.Stats.EnemiesDefeated kills</div>
+            }
+        </div>
+        <button class="btn primary block" @onclick="BeginRound">Start Round @(_run.Round + 1)</button>
+    </div>
+}
+else if (_run.Phase == DartlitePhase.Battle && _run.Battle != null)
+{
+    <div class="view-noscroll">
+        <div class="play-header" style="flex-shrink:0;">
+            <div class="row between" style="margin-bottom:8px;">
+                <button class="btn sm" @onclick="QuitRun">← Quit</button>
+                <div class="pill">Dartlite Round @_run.Round</div>
+            </div>
+        </div>
+        <CoopBattleView Battle="_run.Battle" Settings="State.Settings"
+            OnAddDart="HandleAddDart" OnUndoDart="HandleUndoDart" OnResolveVisit="HandleResolveVisit"
+            OnSetTarget="HandleSetTarget" OnActivatePowerUp="HandleActivatePowerUp"
+            OnPrepareEnemyTurn="HandlePrepareEnemyTurn" OnApplyNextAttack="HandleApplyNextAttack"
+            OnContinue="HandleContinue" OnQuit="QuitRun" />
+    </div>
+}
+else if (_run.Phase == DartlitePhase.Choice && _run.PendingChoice != null)
+{
+    var currentPicker = _run.RunPlayers.ElementAtOrDefault(_run.ChoicePlayerIdx);
+    <div class="view-scroll">
+        <h2 style="margin-bottom:16px;">Choose Your Boon</h2>
+        @if (currentPicker != null)
+        {
+            <div class="card" style="text-align:center;margin-bottom:12px;">
+                <span class="avatar" style="background:@currentPicker.Color;">@GameLogic.Initials(currentPicker.Name)</span>
+                <span style="font-weight:600;margin-left:8px;">@currentPicker.Name</span>
+            </div>
+        }
+        <div class="grid grid-3">
+            @foreach (var opt in _run.PendingChoice)
+            {
+                <button class="mode-card" @onclick="() => PickChoice(opt)">
+                    <div style="font-size:32px;margin-bottom:8px;">@opt.Icon</div>
+                    <div style="font-weight:700;">@opt.Label</div>
+                    <div class="muted small" style="margin-top:4px;">@opt.Desc</div>
+                </button>
+            }
+        </div>
+    </div>
+}
+else if (_run.Phase == DartlitePhase.Reward)
+{
+    <div class="view-scroll">
+        <h2 style="text-align:center;margin-bottom:16px;">Rewards</h2>
+        @foreach (var choice in _run.PlayerChoices.Where(c => c != null))
+        {
+            <div class="card" style="text-align:center;margin-bottom:8px;">
+                <div style="font-size:28px;">@choice!.Icon</div>
+                <div style="font-weight:600;">@choice.Label</div>
+                <div class="muted small">@choice.Desc</div>
+            </div>
+        }
+        @if (_run.LastUnlockedTrinket != null)
+        {
+            var unlocked = Trinkets.GetTrinket(_run.LastUnlockedTrinket);
+            if (unlocked != null)
+            {
+                <div class="card" style="text-align:center;border-color:var(--accent);">
+                    <div class="muted small" style="color:var(--accent);">NEW TRINKET UNLOCKED</div>
+                    <div style="font-size:32px;">@unlocked.Icon</div>
+                    <div style="font-weight:700;">@unlocked.Name</div>
+                    <div class="muted small">@unlocked.Desc</div>
+                </div>
+            }
+        }
+        <button class="btn primary block" @onclick="ContinueAfterReward">Continue</button>
+    </div>
+}
+else if (_run.Phase == DartlitePhase.BossVictory && _run.BossVictory != null)
+{
+    <div class="view-scroll">
+        <div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:48px;">👑</div>
+            <h2>Boss Defeated!</h2>
+            <div class="muted">@_run.BossVictory.BossName has fallen. Party healed to full.</div>
+        </div>
+        <h3 style="text-align:center;margin-bottom:12px;">Choose a Boss Trinket</h3>
+        <div class="grid grid-3">
+            @foreach (var tid in _run.BossVictory.TrinketOptions)
+            {
+                var t = Trinkets.GetTrinket(tid);
+                if (t == null) continue;
+                <button class="mode-card" @onclick="() => PickBossTrinket(tid)">
+                    <div style="font-size:32px;margin-bottom:8px;">@t.Icon</div>
+                    <div style="font-weight:700;">@t.Name</div>
+                    <div class="muted small" style="margin-top:4px;">@t.Desc</div>
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private DartliteRun? _run;
+    private List<string> _selectedPlayers = new();
+    private bool _cardMode = false;
+
+    void TogglePlayer(string id)
+    {
+        if (_selectedPlayers.Contains(id)) _selectedPlayers.Remove(id);
+        else if (_selectedPlayers.Count < 4) _selectedPlayers.Add(id);
+        State.Notify();
+    }
+
+    void StartRun()
+    {
+        var players = State.Players.Where(p => _selectedPlayers.Contains(p.Id)).ToList();
+        _run = DartliteEngine.StartRun(players, State.Settings, _cardMode);
+        State.Notify();
+    }
+
+    void BeginRound()
+    {
+        if (_run == null) return;
+        var players = State.Players.Where(p => _run.PlayerIds.Contains(p.Id)).ToList();
+        _run = DartliteEngine.BeginRound(_run, players, State.Settings);
+        State.Notify();
+    }
+
+    void HandleAddDart(int baseNum, int mult, string? label, bool isBull)
+    {
+        if (_run?.Battle == null) return;
+        _run.Battle = CoopEngine.AddDart(_run.Battle, baseNum, mult, label, isBull, State.Settings);
+        _ = Sound.PlayClick(State.Settings);
+        State.Notify();
+    }
+
+    void HandleUndoDart()
+    {
+        if (_run?.Battle == null) return;
+        _run.Battle = CoopEngine.UndoDart(_run.Battle, State.Settings);
+        State.Notify();
+    }
+
+    void HandleResolveVisit()
+    {
+        if (_run?.Battle == null) return;
+        _run.Battle = CoopEngine.ResolvePlayerVisit(_run.Battle);
+        State.Notify();
+    }
+
+    void HandleSetTarget(string enemyId)
+    {
+        if (_run?.Battle == null) return;
+        _run.Battle = CoopEngine.SetTarget(_run.Battle, enemyId);
+        State.Notify();
+    }
+
+    void HandleActivatePowerUp(string id)
+    {
+        if (_run?.Battle == null) return;
+        _run.Battle = CoopActions.Activate(_run.Battle, id);
+        State.Notify();
+    }
+
+    void HandlePrepareEnemyTurn()
+    {
+        if (_run?.Battle == null) return;
+        _run.Battle = CoopEngine.PrepareEnemyTurn(_run.Battle);
+        State.Notify();
+    }
+
+    void HandleApplyNextAttack()
+    {
+        if (_run?.Battle == null) return;
+        _run.Battle = CoopEngine.ApplyNextEnemyAttack(_run.Battle);
+        if (_run.Battle.Outcome != CoopOutcome.Ongoing)
+        {
+            var won = _run.Battle.Outcome == CoopOutcome.Victory;
+            _run = DartliteEngine.ResolveBattle(_run, won);
+        }
+        State.Notify();
+    }
+
+    void HandleContinue()
+    {
+        if (_run?.Battle == null) return;
+        if (_run.Battle.Phase == CoopPhase.Enemy && _run.Battle.PendingEnemyAttacks.Count > 0)
+            HandleApplyNextAttack();
+        else if (_run.Battle.Phase == CoopPhase.Enemy && _run.Battle.PendingEnemyAttacks.Count == 0 && _run.Battle.AwaitContinue)
+        {
+            _run.Battle = CoopEngine.FinishEnemyTurn(_run.Battle);
+            if (_run.Battle.Outcome != CoopOutcome.Ongoing)
+            {
+                var won = _run.Battle.Outcome == CoopOutcome.Victory;
+                _run = DartliteEngine.ResolveBattle(_run, won);
+            }
+            State.Notify();
+        }
+        else
+        {
+            _run.Battle = CoopEngine.CloneWithPublic(_run.Battle, awaitContinue: false);
+            State.Notify();
+        }
+    }
+
+    void PickChoice(ChoiceOption opt)
+    {
+        if (_run == null) return;
+        _run = DartliteEngine.ApplyPlayerChoice(_run, opt);
+        State.Notify();
+    }
+
+    void ContinueAfterReward()
+    {
+        if (_run == null) return;
+        _run.Phase = DartlitePhase.Setup;
+        State.Notify();
+    }
+
+    void PickBossTrinket(string tid)
+    {
+        if (_run == null) return;
+        _run = DartliteEngine.ApplyBossTrinketChoice(_run, tid);
+        State.Notify();
+    }
+
+    void EndRun()
+    {
+        if (_run != null) DartliteEngine.RecordDartliteRun(_run, State);
+        _run = null;
+        State.Notify();
+    }
+
+    void QuitRun()
+    {
+        _run = null;
+        State.Notify();
+    }
+}

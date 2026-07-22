@@ -1,0 +1,135 @@
+@using dart_counter.Models
+@using dart_counter.Logic
+@using dart_counter.Services
+@inject GameStateService State
+@inject ToastService Toast
+
+<div class="view-scroll">
+    <h2 style="margin-bottom:16px;">Card Deck Builder</h2>
+
+    @if (State.Players.Count == 0)
+    {
+        <div class="empty">No players yet. Add players in the Players tab.</div>
+    }
+    else
+    {
+        <div class="tabbar">
+            @foreach (var p in State.Players)
+            {
+                <button class="@(_selectedPlayerId == p.Id ? "on" : "")" @onclick="() => _selectedPlayerId = p.Id">
+                    <span class="tab-ico" style="display:inline-block;width:16px;height:16px;border-radius:50%;background:@p.Color;"></span>
+                    @p.Name
+                </button>
+            }
+        </div>
+
+        @if (SelectedPlayer != null)
+        {
+            var cards = CardDeck.GetPlayerCards(SelectedPlayer);
+            var classId = SelectedPlayer.CoopProgress?.ClassId?.ToString().ToLowerInvariant();
+            var available = CardDefinitions.CardsForClass(
+                classId == "warrior" ? CardClass.Warrior : classId == "priest" ? CardClass.Priest : classId == "rogue" ? CardClass.Rogue : CardClass.Any,
+                CardMode.Coop);
+            var byLevel = CardDefinitions.CardsByLevel(available);
+
+            <div class="card">
+                <div class="row between">
+                    <div class="row" style="gap:10px;align-items:center;">
+                        <span class="avatar" style="background:@SelectedPlayer.Color;">@GameLogic.Initials(SelectedPlayer.Name)</span>
+                        <div>
+                            <div style="font-weight:700;">@SelectedPlayer.Name</div>
+                            <div class="muted small">@cards.Count cards in deck</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:10px;">Your Deck</h3>
+                @if (cards.Count == 0)
+                {
+                    <div class="empty">No cards in deck.</div>
+                }
+                else
+                {
+                    <div class="grid grid-3">
+                        @foreach (var pc in cards)
+                        {
+                            var def = CardDefinitions.ResolveCardDef(pc);
+                            if (def == null) continue;
+                            <div class="stat" style="border-left:3px solid @(CardDefinitions.CardRarityColor(def.Rarity));">
+                                <div style="font-size:24px;">@def.Icon</div>
+                                <div class="l">@def.Name</div>
+                                <div class="muted" style="font-size:10px;">@def.Desc</div>
+                                @if (pc.UpgradeLevel > 0) { <div style="font-size:10px;color:var(--accent);">+@pc.UpgradeLevel</div> }
+                                @if (CardDeck.CanUpgradeCard(cards, pc.CardId))
+                                {
+                                    <button class="btn sm" style="margin-top:4px;" @onclick="() => UpgradeCard(pc.CardId)">Upgrade</button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom:10px;">Available Cards</h3>
+                @foreach (var levelGroup in byLevel.OrderBy(k => k.Key))
+                {
+                    <div class="muted small" style="margin-top:12px;margin-bottom:6px;">Level @levelGroup.Key</div>
+                    <div class="grid grid-3">
+                        @foreach (var def in levelGroup.Value)
+                        {
+                            var owned = CardDeck.HasCard(cards, def.Id);
+                            <div class="stat @(owned ? "" : "clickable")" style="border-left:3px solid @(CardDefinitions.CardRarityColor(def.Rarity));@(owned ? "opacity:0.5;" : "")" @onclick="@(owned ? null : (Action)(() => AddCard(def.Id)))">
+                                <div style="font-size:24px;">@def.Icon</div>
+                                <div class="l">@def.Name</div>
+                                <div class="muted" style="font-size:10px;">@def.Desc</div>
+                                @if (owned) { <div style="font-size:10px;color:var(--accent);">Owned</div> }
+                                else { <div style="font-size:10px;color:var(--accent);">Tap to add</div> }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private string? _selectedPlayerId;
+    public Player? SelectedPlayer => State.Players.FirstOrDefault(p => p.Id == _selectedPlayerId);
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += StateOnChange;
+        if (State.Players.Count > 0) _selectedPlayerId = State.Players[0].Id;
+    }
+
+    void StateOnChange() => InvokeAsync(StateHasChanged);
+
+    void AddCard(string cardId)
+    {
+        if (SelectedPlayer == null) return;
+        var cards = CardDeck.GetPlayerCards(SelectedPlayer);
+        cards = CardDeck.AddCard(cards, cardId);
+        var key = CardDeck.ClassKey(SelectedPlayer.CoopProgress?.ClassId?.ToString().ToLowerInvariant());
+        SelectedPlayer.Cards ??= new();
+        SelectedPlayer.Cards[key] = cards;
+        _ = State.SetPlayers(State.Players);
+        Toast.Show("Card added to deck!");
+    }
+
+    void UpgradeCard(string cardId)
+    {
+        if (SelectedPlayer == null) return;
+        var cards = CardDeck.GetPlayerCards(SelectedPlayer);
+        if (!CardDeck.CanUpgradeCard(cards, cardId)) return;
+        cards = CardDeck.UpgradeCard(cards, cardId);
+        var key = CardDeck.ClassKey(SelectedPlayer.CoopProgress?.ClassId?.ToString().ToLowerInvariant());
+        SelectedPlayer.Cards ??= new();
+        SelectedPlayer.Cards[key] = cards;
+        _ = State.SetPlayers(State.Players);
+        Toast.Show("Card upgraded!");
+    }
+}
