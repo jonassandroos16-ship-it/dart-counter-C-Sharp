@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using dart_counter.Models;
 using dart_counter.Logic;
 using dart_counter.Services;
@@ -19,6 +20,8 @@ public partial class SettingsView : ComponentBase
     private void StateOnChange() => InvokeAsync(StateHasChanged);
 
     private async Task UpdateSettings(Settings settings) => await State.SetSettings(settings);
+
+    private async Task SaveSettings() => await State.SetSettings(State.Settings);
 
     private void Update(Action<Settings> fn)
     {

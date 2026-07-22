@@ -46,7 +46,7 @@
             <h3 style="margin-bottom:16px;">@(_isNew ? "New Player" : "Edit Player")</h3>
             <div style="margin-bottom:12px;">
                 <label class="small muted" style="display:block;margin-bottom:4px;">Name</label>
-                <input class="input" @bind="_editName" placeholder="Player name" @onkeydown="@(_editName.Trim().Length > 0 ? (EventCallback)KeyDownEnterSave : EventCallback.Empty)" />
+                <input class="input" @bind="_editName" placeholder="Player name" @onkeydown="KeyDownEnterSave" />
             </div>
             <div style="margin-bottom:16px;">
                 <label class="small muted" style="display:block;margin-bottom:4px;">Color</label>

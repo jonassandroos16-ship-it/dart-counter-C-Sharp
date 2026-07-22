@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using dart_counter.Services;
 using dart_counter.Models;
 using dart_counter.Logic;
@@ -17,7 +18,7 @@ public partial class App : ComponentBase, IDisposable
     private bool _welcomeDone = false;
     private bool _loading = true;
 
-    protected override async Task OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         State.OnChange += StateOnChange;
         await State.Initialize();

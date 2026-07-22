@@ -1,4 +1,5 @@
 using dart_counter.Models;
+using Microsoft.JSInterop;
 using System.Text.Json;
 
 namespace dart_counter.Services;

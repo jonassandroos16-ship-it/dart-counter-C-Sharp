@@ -23,15 +23,15 @@
         <div class="muted small" style="margin-bottom:8px;">Game</div>
         <label class="row between" style="margin-bottom:8px;cursor:pointer;">
             <span>Confirm Reset</span>
-            <input type="checkbox" @bind="State.Settings.ConfirmReset" @bind:after="() => Update(s => s.ConfirmReset = State.Settings.ConfirmReset)" />
+            <input type="checkbox" @bind="State.Settings.ConfirmReset" @bind:after="SaveSettings" />
         </label>
         <label class="row between" style="margin-bottom:8px;cursor:pointer;">
             <span>Sound Effects</span>
-            <input type="checkbox" @bind="State.Settings.Sound" @bind:after="() => Update(s => s.Sound = State.Settings.Sound)" />
+            <input type="checkbox" @bind="State.Settings.Sound" @bind:after="SaveSettings" />
         </label>
         <label class="row between" style="cursor:pointer;">
             <span>Music</span>
-            <input type="checkbox" @bind="State.Settings.Music" @bind:after="() => Update(s => s.Music = State.Settings.Music)" />
+            <input type="checkbox" @bind="State.Settings.Music" @bind:after="SaveSettings" />
         </label>
     </div>
 

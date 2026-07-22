@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using dart_counter.Models;
 using dart_counter.Logic;
 using dart_counter.Services;

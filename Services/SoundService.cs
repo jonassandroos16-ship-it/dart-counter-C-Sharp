@@ -1,5 +1,6 @@
 using dart_counter.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace dart_counter.Services;
 
