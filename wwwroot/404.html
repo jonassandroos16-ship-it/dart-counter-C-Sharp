@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Dart Wars - 404</title>
+    <script>
+        // Redirect to index.html with path for SPA routing
+        var pathSegmentsToKeep = 1;
+        var l = window.location;
+        l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + l.pathname.substr(0, l.pathname.indexOf('/', 1) + pathSegmentsToKeep) + '/?' + l.pathname.substr(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') + (l.search ? '&' + l.search.substr(1).replace(/&/g, '~and~') : '') + l.hash);
+    </script>
+</head>
+<body>
+</body>
+</html>
