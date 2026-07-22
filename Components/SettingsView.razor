@@ -1,83 +1,130 @@
+@inject GameStateService State
+@inject ToastService Toast
+@inject SoundService Sound
+@using dart_counter.Logic
+
 <div class="view-scroll">
     <h2 style="margin-bottom:16px;">Settings</h2>
 
-    <div class="card" style="margin-bottom:12px;">
-        <div class="muted small" style="margin-bottom:8px;">Appearance</div>
-        <div class="row between" style="margin-bottom:12px;">
-            <span>Theme</span>
-            <button class="btn sm" @onclick="ToggleTheme">@(State.Settings.Theme == "dark" ? "🌙 Dark" : "☀️ Light")</button>
-        </div>
-        <div class="row between" style="margin-bottom:8px;">
-            <span>Accent Color</span>
-        </div>
-        <div class="color-picker-row">
-            @foreach (var c in new[] { "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#a855f7", "#84cc16" })
+    <div class="card">
+        <h3 style="margin-bottom:10px;">Appearance</h3>
+        <label class="field"><span>Theme</span>
+            <select @bind="State.Settings.Theme">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+            </select>
+        </label>
+        <label class="field"><span>Accent Color</span></label>
+        <div class="row wrap" style="gap:8px;">
+            @foreach (var c in GameModes.Colors)
             {
-                var color = c;
-                <button class="color-swatch @(State.Settings.Accent == color ? "selected" : "")" style="background:@color;" @onclick="() => SetAccent(color)"></button>
+                <button class="swatch @(State.Settings.Accent == c ? "on" : "")" style="background:@c;" @onclick="() => SetAccent(c)"></button>
             }
         </div>
     </div>
 
-    <div class="card" style="margin-bottom:12px;">
-        <div class="muted small" style="margin-bottom:8px;">Game</div>
-        <label class="row between" style="margin-bottom:8px;cursor:pointer;">
-            <span>Confirm Reset</span>
-            <input type="checkbox" @bind="State.Settings.ConfirmReset" @bind:after="SaveSettings" />
-        </label>
+    <div class="card">
+        <h3 style="margin-bottom:10px;">Sound</h3>
         <label class="row between" style="margin-bottom:8px;cursor:pointer;">
             <span>Sound Effects</span>
-            <input type="checkbox" @bind="State.Settings.Sound" @bind:after="SaveSettings" />
+            <input type="checkbox" @bind="State.Settings.Sound" />
+        </label>
+        <label class="row between" style="margin-bottom:8px;cursor:pointer;">
+            <span>Background Music</span>
+            <input type="checkbox" @bind="State.Settings.Music" />
+        </label>
+        <label class="field"><span>SFX Volume: @((int)(State.Settings.SfxVolume * 100))%</span>
+            <input type="range" min="0" max="1" step="0.05" @bind="State.Settings.SfxVolume" />
+        </label>
+        <label class="field"><span>Hit Sound Pack</span>
+            <select @bind="State.Settings.HitSoundPack">
+                <option value="thud">Thud</option>
+                <option value="board">Board</option>
+                <option value="punch">Punch</option>
+                <option value="arcade">Arcade</option>
+            </select>
+        </label>
+        <label class="field"><span>Click Sound</span>
+            <select @bind="State.Settings.ClickSound">
+                <option value="tick">Tick</option>
+                <option value="pop">Pop</option>
+                <option value="tap">Tap</option>
+            </select>
+        </label>
+        <label class="field"><span>Click Volume: @((int)(State.Settings.ClickVolume * 100))%</span>
+            <input type="range" min="0" max="1" step="0.05" @bind="State.Settings.ClickVolume" />
+        </label>
+        <button class="btn sm" @onclick="TestSound">Test Sound</button>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom:10px;">Game Mode</h3>
+        <label class="field"><span>Default Game Mode</span>
+            <select @bind="State.Settings.GameMode">
+                <option value="dartboard">Dartboard</option>
+                <option value="cards">Cards</option>
+            </select>
         </label>
         <label class="row between" style="cursor:pointer;">
-            <span>Music</span>
-            <input type="checkbox" @bind="State.Settings.Music" @bind:after="SaveSettings" />
+            <span>Confirm Reset</span>
+            <input type="checkbox" @bind="State.Settings.ConfirmReset" />
         </label>
     </div>
 
-    <div class="card" style="margin-bottom:12px;">
-        <div class="muted small" style="margin-bottom:8px;">Cloud Sync</div>
+    <div class="card">
+        <h3 style="margin-bottom:10px;">XP & Levels</h3>
+        <label class="field"><span>Win XP</span><input type="number" @bind="State.Settings.XpConfig.Win" /></label>
+        <label class="field"><span>180 XP</span><input type="number" @bind="State.Settings.XpConfig.Visit180" /></label>
+        <label class="field"><span>Checkout XP</span><input type="number" @bind="State.Settings.XpConfig.Checkout" /></label>
+        <label class="field"><span>Per Dart XP</span><input type="number" @bind="State.Settings.XpConfig.PerDart" /></label>
+        <label class="field"><span>Base Level XP</span><input type="number" @bind="State.Settings.XpConfig.BaseLevelXp" /></label>
+        <label class="field"><span>Level Multiplier</span><input type="number" step="0.1" @bind="State.Settings.XpConfig.LevelMult" /></label>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom:10px;">Power-Ups & Attributes</h3>
+        <label class="field"><span>Charge Per Double</span><input type="number" @bind="State.Settings.PowerUpScaling.ChargePerDouble" /></label>
+        <label class="field"><span>Charge Per Triple</span><input type="number" @bind="State.Settings.PowerUpScaling.ChargePerTriple" /></label>
+        <label class="field"><span>Charge Per Bull</span><input type="number" @bind="State.Settings.PowerUpScaling.ChargePerBull" /></label>
+        <label class="field"><span>Charge Max</span><input type="number" @bind="State.Settings.PowerUpScaling.ChargeMax" /></label>
+        <label class="field"><span>Starting Power-Up Points</span><input type="number" @bind="State.Settings.PowerUpScaling.StartingPoints" /></label>
+        <label class="field"><span>Attribute Points Per Level</span><input type="number" @bind="State.Settings.PowerUpScaling.AttributePointsPerLevel" /></label>
+        <label class="field"><span>Start Health</span><input type="number" @bind="State.Settings.PowerUpScaling.AttributeStartHealth" /></label>
+        <label class="field"><span>Health Per Point</span><input type="number" @bind="State.Settings.PowerUpScaling.HealthPerPoint" /></label>
+        <label class="field"><span>Armor Max</span><input type="number" @bind="State.Settings.PowerUpScaling.ArmorMax" /></label>
+        <label class="field"><span>Power Max</span><input type="number" @bind="State.Settings.PowerUpScaling.PowerMax" /></label>
+        <label class="field"><span>Battle Min Damage</span><input type="number" @bind="State.Settings.PowerUpScaling.BattleMinDamage" /></label>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom:10px;">Popups</h3>
+        <label class="row between" style="margin-bottom:8px;cursor:pointer;"><span>Score Popups</span><input type="checkbox" @bind="State.Settings.Popups.Scores" /></label>
+        <label class="row between" style="margin-bottom:8px;cursor:pointer;"><span>Milestone Popups</span><input type="checkbox" @bind="State.Settings.Popups.Milestones" /></label>
+        <label class="row between" style="margin-bottom:8px;cursor:pointer;"><span>XP Popups</span><input type="checkbox" @bind="State.Settings.Popups.Xp" /></label>
+        <label class="row between" style="cursor:pointer;"><span>Title Popups</span><input type="checkbox" @bind="State.Settings.Popups.Titles" /></label>
+    </div>
+
+    <div class="card">
+        <h3 style="margin-bottom:10px;">Cloud Sync</h3>
         <div class="row between" style="margin-bottom:8px;">
-            <span class="small">Status</span>
-            <span class="small">
-                @if (State.Connected)
-                {
-                    <span style="color:var(--success);">● Connected</span>
-                }
-                else
-                {
-                    <span style="color:var(--muted);">○ Not synced</span>
-                }
-                @if (State.LastSync.HasValue)
-                {
-                    <span class="muted"> · @State.LastSync.Value.ToString("HH:mm")</span>
-                }
-            </span>
+            <span class="muted small">Status</span>
+            <div class="row" style="gap:6px;">
+                <span class="sync-dot @(State.Connected ? "online" : "offline")"></span>
+                <span class="small">@(State.Connected ? "Connected" : "Offline")</span>
+            </div>
         </div>
-        <button class="btn primary block" @onclick="Sync" disabled="@State.Syncing">
-            @(State.Syncing ? "Syncing..." : "Sync Now")
-        </button>
+        @if (State.LastSync != null)
+        {
+            <div class="muted small" style="margin-bottom:8px;">Last sync: @GameLogic.FmtDateTime(State.LastSync.Value)</div>
+        }
+        <button class="btn block" @onclick="SyncNow">Sync Now</button>
     </div>
 
-    <div class="card" style="margin-bottom:12px;">
-        <div class="muted small" style="margin-bottom:8px;">Data</div>
-        <button class="btn block" @onclick="ExportData">Export Data (JSON)</button>
+    <div class="card">
+        <h3 style="margin-bottom:10px;">Data</h3>
+        <button class="btn block" style="margin-bottom:8px;" @onclick="ExportData">Export Data</button>
+        <button class="btn danger block" @onclick="EraseAllData">Erase All Data</button>
     </div>
 
-    <div class="card" style="margin-bottom:12px;">
-        <div class="muted small" style="margin-bottom:8px;">About</div>
-        <p class="small muted">Dart Wars (C# / Blazor) — A dart counter with RPG mechanics.
-        <br />Converted from React/TypeScript to C# Blazor WebAssembly.</p>
-    </div>
+    <div class="muted small center" style="padding:16px 0;">Dart Wars · C# Port · v2.0</div>
 </div>
-
-@if (_showExport)
-{
-    <div class="modal-bg" @onclick="() => _showExport = false">
-        <div class="modal" @onclick:stopPropagation>
-            <h3 style="margin-bottom:12px;">Export Data</h3>
-            <textarea class="input" style="width:100%;min-height:200px;font-size:11px;" readonly>@_exportData</textarea>
-            <button class="btn primary block" style="margin-top:8px;" @onclick="() => _showExport = false">Close</button>
-        </div>
-    </div>
-}
