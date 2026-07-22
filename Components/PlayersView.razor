@@ -1,74 +1,167 @@
-<div class="row between" style="margin-bottom:12px;">
-    <h2>Players</h2>
-    <button class="btn primary sm" @onclick="AddPlayer">+ Add Player</button>
+@inject GameStateService State
+@inject ToastService Toast
+@inject SoundService Sound
+@using dart_counter.Logic
+
+<div class="view-scroll">
+    <h2 style="margin-bottom:16px;">Players</h2>
+
+    <button class="btn primary block" style="margin-bottom:16px;" @onclick="AddPlayer">+ Add Player</button>
+
+    @if (State.Players.Count == 0)
+    {
+        <div class="empty">No players yet. Tap "Add Player" to get started.</div>
+    }
+
+    @foreach (var player in State.Players)
+    {
+        var stats = GameLogic.PlayerStats_(player.Id, State.Games);
+        var (xp, level) = GameLogic.LevelFromXp(player.Xp, State.Settings);
+        var xpNeeded = GameLogic.XpForLevel(level, State.Settings);
+        var xpPct = (int)((double)xp / xpNeeded * 100);
+        <div class="card">
+            <div class="row between">
+                <div class="row" style="gap:10px;align-items:center;">
+                    <span class="avatar" style="background:@player.Color;">@GameLogic.Initials(player.Name)</span>
+                    <div>
+                        <div style="font-weight:700;font-size:16px;">@player.Name</div>
+                        <div class="xp-pill">Lv @level · @xp/@xpNeeded XP</div>
+                    </div>
+                </div>
+                <div class="row" style="gap:6px;">
+                    <button class="btn sm" @onclick="() => EditPlayer(player)">Edit</button>
+                    <button class="btn sm danger" @onclick="() => DeletePlayer(player)">Delete</button>
+                </div>
+            </div>
+            <div class="xp-bar" style="margin-top:8px;"><div style="width:@(xpPct)%;"></div></div>
+            @if (!string.IsNullOrEmpty(player.SelectedTitle))
+            {
+                var t = Titles.GetInfo(player.SelectedTitle, State.Settings.CustomTitles);
+                if (t != null) { <div class="title-badge" style="margin-top:8px;">@(t.Icon) @t.Name</div> }
+            }
+            <div class="grid grid-3" style="margin-top:10px;">
+                <div class="stat"><div class="v">@stats.Games</div><div class="l">Games</div></div>
+                <div class="stat"><div class="v">@stats.GamesWon</div><div class="l">Wins</div></div>
+                <div class="stat"><div class="v">@stats.N180</div><div class="l">180s</div></div>
+                <div class="stat"><div class="v">@stats.Avg.ToString("F1")</div><div class="l">Avg</div></div>
+                <div class="stat"><div class="v">@stats.Tons</div><div class="l">100+</div></div>
+                <div class="stat"><div class="v">@(player.UnlockedBadges.Count)</div><div class="l">Badges</div></div>
+            </div>
+        </div>
+    }
 </div>
 
-@if (State.Players.Count == 0)
+@if (_editingPlayer != null)
 {
-    <div class="card empty">No players yet.<br />Add your first player to get started.</div>
-}
-
-@foreach (var p in State.Players)
-{
-    var stats = GameLogic.PlayerStats_(p.Id, State.Games);
-    var (xp, level) = GameLogic.LevelFromXp(p.Xp, State.Settings);
-    <div class="card player-card">
-        <div class="row between">
-            <div class="row" style="gap:12px;align-items:center;">
-                <span class="avatar" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
-                <div>
-                    <div style="font-weight:700;font-size:16px;">@p.Name</div>
-                    <div class="muted small">Level @level · @xp XP · @stats.Games games · @stats.GamesWon wins</div>
-                </div>
-            </div>
-            <div class="row" style="gap:6px;">
-                <button class="btn sm" @onclick="() => EditPlayer(p)">Edit</button>
-                <button class="btn sm danger" @onclick="() => DeletePlayer(p)">Delete</button>
-            </div>
-        </div>
-        @if (stats.Games > 0)
-        {
-            <div class="player-stats-row">
-                <div class="stat-mini"><span class="stat-val">@stats.Avg.ToString("F1")</span><span class="stat-label">Avg</span></div>
-                <div class="stat-mini"><span class="stat-val">@stats.N180</span><span class="stat-label">180s</span></div>
-                <div class="stat-mini"><span class="stat-val">@stats.Tons</span><span class="stat-label">100+</span></div>
-                <div class="stat-mini"><span class="stat-val">@stats.HighScore</span><span class="stat-label">High</span></div>
-                <div class="stat-mini"><span class="stat-val">@stats.WinRate.ToString("F0")%</span><span class="stat-label">Win%</span></div>
-            </div>
-        }
-    </div>
-}
-
-@if (_editing != null)
-{
-    <div class="modal-bg" @onclick="CancelEdit">
+    <div class="modal-bg" @onclick="CloseEdit">
         <div class="modal" @onclick:stopPropagation>
-            <h3 style="margin-bottom:16px;">@(_isNew ? "New Player" : "Edit Player")</h3>
-            <div style="margin-bottom:12px;">
-                <label class="small muted" style="display:block;margin-bottom:4px;">Name</label>
-                <input class="input" @bind="_editName" placeholder="Player name" @onkeydown="KeyDownEnterSave" />
+            <h2 style="margin-bottom:16px;">@(_isNew ? "Add Player" : "Edit Player")</h2>
+            <label class="field"><span>Name</span><input @bind="_editingPlayer.Name" placeholder="Player name" /></label>
+            <label class="field"><span>Color</span></label>
+            <div class="row wrap" style="gap:8px;margin-bottom:16px;">
+                @foreach (var c in GameModes.Colors)
+                {
+                    <button class="swatch @(_editingPlayer.Color == c ? "on" : "")" style="background:@c;" @onclick="() => _editingPlayer.Color = c"></button>
+                }
             </div>
-            <div style="margin-bottom:16px;">
-                <label class="small muted" style="display:block;margin-bottom:4px;">Color</label>
-                <div class="color-picker-row">
-                    @foreach (var c in GameModes.Colors)
+            <div class="tabbar">
+                <button class="@(_editTab == "basic" ? "on" : "")" @onclick='() => _editTab = "basic"'><span class="tab-ico">👤</span> Basic</button>
+                <button class="@(_editTab == "titles" ? "on" : "")" @onclick='() => _editTab = "titles"'><span class="tab-ico">🏆</span> Titles</button>
+                <button class="@(_editTab == "badges" ? "on" : "")" @onclick='() => _editTab = "badges"'><span class="tab-ico">🎖️</span> Badges</button>
+                <button class="@(_editTab == "powerups" ? "on" : "")" @onclick='() => _editTab = "powerups"'><span class="tab-ico">⚡</span> Power-Ups</button>
+            </div>
+
+            @switch (_editTab)
+            {
+                @case "basic":
+                    <label class="field"><span>Entrance Sound</span>
+                        <select @bind="_editingPlayer.Sound">
+                            @foreach (var s in PlayerSounds.All)
+                            {
+                                <option value="@s.Id">@(s.Icon) @s.Name</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="field"><span>Showdown Background</span>
+                        <select @bind="_editingPlayer.ShowdownBg">
+                            @foreach (var bg in ShowdownBgs.All)
+                            {
+                                <option value="@bg.Id">@bg.Label</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="row between" style="cursor:pointer;">
+                        <span>Developer Mode (unlock everything)</span>
+                        <input type="checkbox" @bind="_editingPlayer.DeveloperMode" />
+                    </label>
+                    break;
+                @case "titles":
+                    <div class="muted small" style="margin-bottom:8px;">Select a title to display:</div>
+                    @if (_editingPlayer.UnlockedTitles.Count == 0)
                     {
-                        var color = c;
-                        <button class="color-swatch @(_editColor == color ? "selected" : "")" style="background:@color;" @onclick="() => _editColor = color"></button>
+                        <div class="empty">No titles unlocked yet. Play games to earn them!</div>
                     }
-                </div>
-            </div>
-            <div class="row" style="gap:8px;">
-                <button class="btn block" @onclick="CancelEdit">Cancel</button>
-                <button class="btn primary block" @onclick="SavePlayer" disabled="@(string.IsNullOrWhiteSpace(_editName))">Save</button>
+                    @foreach (var tid in _editingPlayer.UnlockedTitles)
+                    {
+                        var t = Titles.GetInfo(tid, State.Settings.CustomTitles);
+                        if (t == null) continue;
+                        <button class="player-select-btn @(_editingPlayer.SelectedTitle == tid ? "selected" : "")" @onclick="() => _editingPlayer.SelectedTitle = tid">
+                            <span style="font-size:18px;">@(t.Icon)</span>
+                            <span>@t.Name</span>
+                            @if (_editingPlayer.SelectedTitle == tid) { <span class="check">✓</span> }
+                        </button>
+                    }
+                    break;
+                @case "badges":
+                    <div class="muted small" style="margin-bottom:8px;">Select a badge to display:</div>
+                    @if (_editingPlayer.UnlockedBadges.Count == 0)
+                    {
+                        <div class="empty">No badges unlocked yet. Play games to earn them!</div>
+                    }
+                    @foreach (var bid in _editingPlayer.UnlockedBadges)
+                    {
+                        var b = Badges.GetInfo(bid);
+                        if (b == null) continue;
+                        <button class="player-select-btn @(_editingPlayer.SelectedBadge == bid ? "selected" : "")" @onclick="() => _editingPlayer.SelectedBadge = bid">
+                            <span style="font-size:18px;">@(b.Icon)</span>
+                            <span>@b.Name</span>
+                            @if (_editingPlayer.SelectedBadge == bid) { <span class="check">✓</span> }
+                        </button>
+                    }
+                    break;
+                @case "powerups":
+                    <div class="muted small" style="margin-bottom:8px;">Equip a power-up:</div>
+                    @{
+                        _editingPlayer.PowerUps ??= new();
+                        if (_editingPlayer.PowerUps.Unlocked.Count == 0 && !_editingPlayer.DeveloperMode)
+                        {
+                            <div class="empty">No power-ups unlocked. Level up to earn power-up points!</div>
+                        }
+                        else
+                        {
+                            var allPus = _editingPlayer.DeveloperMode ? PowerUps.All : PowerUps.All.Where(p => _editingPlayer.PowerUps.Unlocked.Contains(p.Id)).ToList();
+                            <button class="player-select-btn @(_editingPlayer.PowerUps.Active == null ? "selected" : "")" @onclick='() => _editingPlayer.PowerUps.Active = null'>
+                                <span style="font-size:18px;">🔇</span>
+                                <span>None</span>
+                                @if (_editingPlayer.PowerUps.Active == null) { <span class="check">✓</span> }
+                            </button>
+                            @foreach (var pu in allPus)
+                            {
+                                <button class="player-select-btn @(_editingPlayer.PowerUps.Active == pu.Id ? "selected" : "")" @onclick="() => _editingPlayer.PowerUps.Active = pu.Id">
+                                    <span style="font-size:18px;">@(pu.Icon)</span>
+                                    <span>@pu.Name</span>
+                                    @if (_editingPlayer.PowerUps.Active == pu.Id) { <span class="check">✓</span> }
+                                </button>
+                            }
+                        }
+                    }
+                    break;
+            }
+
+            <div class="row" style="gap:8px;margin-top:16px;">
+                <button class="btn block" @onclick="CloseEdit">Cancel</button>
+                <button class="btn primary block" @onclick="SavePlayer">Save</button>
             </div>
         </div>
     </div>
-}
-
-@code {
-    private async Task KeyDownEnterSave(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter") await SavePlayer();
-    }
 }
