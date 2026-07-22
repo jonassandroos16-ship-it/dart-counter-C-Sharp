@@ -30,14 +30,14 @@ public partial class SettingsView : ComponentBase
     {
         State.Settings.Theme = State.Settings.Theme == "dark" ? "light" : "dark";
         await State.SetSettings(State.Settings);
-        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Acccent);
+        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Accent);
     }
 
     private async Task SetAccent(string color)
     {
-        State.Settings.Acccent = color;
+        State.Settings.Accent = color;
         await State.SetSettings(State.Settings);
-        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Acccent);
+        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Accent);
     }
 
     private async Task ExportData()
