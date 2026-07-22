@@ -5,7 +5,7 @@ using dart_counter.Logic;
 
 namespace dart_counter;
 
-public partial class App : ComponentBase
+public partial class App : ComponentBase, IDisposable
 {
     [Inject] GameStateService State { get; set; } = default!;
     [Inject] ToastService Toast { get; set; } = default!;
@@ -21,7 +21,9 @@ public partial class App : ComponentBase
     {
         State.OnChange += StateOnChange;
         await State.Initialize();
-        _navOpen = await JS.InvokeAsync<bool>("localStorage.getItem", "dc_nav_open") != "0";
+        var navState = await JS.InvokeAsync<string>("localStorage.getItem", "dc_nav_open");
+        _navOpen = navState != "0";
+        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Accent);
         _loading = false;
     }
 
@@ -42,13 +44,12 @@ public partial class App : ComponentBase
     private async Task DismissWelcome()
     {
         _welcomeDone = true;
-        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Acccent);
+        await JS.InvokeVoidAsync("dartCounter.applyTheme", State.Settings.Theme, State.Settings.Accent);
     }
 
-    public new void Dispose()
+    public void Dispose()
     {
         State.OnChange -= StateOnChange;
-        base.Dispose();
     }
 
     private record NavItem(string Id, string Label, string Icon);
