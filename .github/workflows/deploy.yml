@@ -31,9 +31,9 @@ jobs:
       - name: Add .nojekyll
         run: touch publish/wwwroot/.nojekyll
 
-      - name: Fix base path for GitHub Pages
+      - name: Ensure correct base path for GitHub Pages
         run: |
-          sed -i 's|<base href="/dart-counter-C-Sharp/" />|<base href="/dart-counter-C-Sharp/" />|g' publish/wwwroot/index.html
+          sed -i 's|<base href="/" />|<base href="/dart-counter-C-Sharp/" />|g' publish/wwwroot/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
