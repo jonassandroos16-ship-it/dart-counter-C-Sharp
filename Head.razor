@@ -8,3 +8,6 @@
     html[data-theme="dark"] { color-scheme: dark; }
     html[data-theme="light"] { color-scheme: light; }
 </style>
+<script>
+    document.documentElement.setAttribute('data-theme', '@State.Settings.Theme');
+</script>
