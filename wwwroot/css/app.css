@@ -290,6 +290,7 @@ h3 { font-size: 18px; }
     transition: all .2s ease;
 }
 .welcome-cta:hover { background: var(--accent); color: #000; }
+.welcome-loading { color: var(--muted); font-size: 16px; font-weight: 600; }
 
 /* Play view */
 .play-view { display: flex; flex-direction: column; gap: 12px; }
