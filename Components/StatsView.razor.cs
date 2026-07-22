@@ -11,6 +11,8 @@ public partial class StatsView : ComponentBase
 
     private string? _selectedPlayerId;
 
+    public Player? SelectedPlayer => State.Players.FirstOrDefault(p => p.Id == _selectedPlayerId);
+
     protected override void OnInitialized()
     {
         State.OnChange += StateOnChange;

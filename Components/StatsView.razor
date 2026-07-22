@@ -1,4 +1,3 @@
-@inject GameStateService State
 @using dart_counter.Logic
 
 <div class="view-scroll">
@@ -20,103 +19,107 @@
             }
         </div>
 
-        @{
-            var player = State.Players.FirstOrDefault(p => p.Id == _selectedPlayerId);
-            if (player == null) { <div class="empty">Select a player.</div> return; }
+        @if (SelectedPlayer == null)
+        {
+            <div class="empty">Select a player.</div>
+        }
+        else
+        {
+            var player = SelectedPlayer;
             var stats = GameLogic.PlayerStats_(player.Id, State.Games);
             var (xp, level) = GameLogic.LevelFromXp(player.Xp, State.Settings);
             var xpNeeded = GameLogic.XpForLevel(level, State.Settings);
             var xpPct = (int)((double)xp / xpNeeded * 100);
-        }
 
-        <div class="card">
-            <div class="row between" style="margin-bottom:8px;">
-                <div class="row" style="gap:10px;align-items:center;">
-                    <span class="avatar" style="background:@player.Color;">@GameLogic.Initials(player.Name)</span>
-                    <div>
-                        <div style="font-weight:700;font-size:16px;">@player.Name</div>
-                        <div class="xp-pill">Lv @level · @xp/@xpNeeded XP</div>
-                    </div>
-                </div>
-                @if (!string.IsNullOrEmpty(player.SelectedTitle))
-                {
-                    var t = Titles.GetInfo(player.SelectedTitle, State.Settings.CustomTitles);
-                    if (t != null) { <div class="title-badge">@(t.Icon) @t.Name</div> }
-                }
-            </div>
-            <div class="xp-bar"><div style="width:@(xpPct)%;"></div></div>
-        </div>
-
-        <div class="grid grid-3">
-            <div class="stat"><div class="v">@stats.Games</div><div class="l">Games</div></div>
-            <div class="stat"><div class="v">@stats.GamesWon</div><div class="l">Wins</div></div>
-            <div class="stat"><div class="v">@stats.WinRate.ToString("F0")%</div><div class="l">Win Rate</div></div>
-            <div class="stat"><div class="v">@stats.Avg.ToString("F1")</div><div class="l">Avg</div></div>
-            <div class="stat"><div class="v">@stats.First9.ToString("F1")</div><div class="l">First 9</div></div>
-            <div class="stat"><div class="v">@stats.N180</div><div class="l">180s</div></div>
-            <div class="stat"><div class="v">@stats.N140</div><div class="l">140+</div></div>
-            <div class="stat"><div class="v">@stats.Tons</div><div class="l">100+</div></div>
-            <div class="stat"><div class="v">@stats.HighScore</div><div class="l">High Visit</div></div>
-            <div class="stat"><div class="v">@stats.HighCheckout</div><div class="l">High Checkout</div></div>
-            <div class="stat"><div class="v">@stats.LegsWon</div><div class="l">Legs Won</div></div>
-            <div class="stat"><div class="v">@stats.DartsThrown</div><div class="l">Darts Thrown</div></div>
-        </div>
-
-        @if (stats.BattleGames > 0)
-        {
-            <div class="card" style="margin-top:12px;">
-                <h3 style="margin-bottom:8px;">Battle Stats</h3>
-                <div class="grid grid-2">
-                    <div class="stat"><div class="v">@stats.BattleGames</div><div class="l">Battle Games</div></div>
-                    <div class="stat"><div class="v">@stats.Kills</div><div class="l">Kills</div></div>
-                </div>
-            </div>
-        }
-
-        <div class="card" style="margin-top:12px;">
-            <h3 style="margin-bottom:10px;">Badges (@player.UnlockedBadges.Count)</h3>
-            @if (player.UnlockedBadges.Count == 0)
-            {
-                <div class="empty">No badges unlocked yet.</div>
-            }
-            else
-            {
-                <div class="grid grid-3">
-                    @foreach (var bid in player.UnlockedBadges)
-                    {
-                        var b = Badges.GetInfo(bid);
-                        if (b == null) continue;
-                        <div class="stat" style="cursor:pointer;">
-                            <div style="font-size:28px;">@(b.Icon)</div>
-                            <div class="l">@b.Name</div>
-                            @if (player.BadgeCounts?.GetValueOrDefault(bid) > 1) { <div class="muted" style="font-size:10px;">×@(player.BadgeCounts[bid])</div> }
+            <div class="card">
+                <div class="row between" style="margin-bottom:8px;">
+                    <div class="row" style="gap:10px;align-items:center;">
+                        <span class="avatar" style="background:@player.Color;">@GameLogic.Initials(player.Name)</span>
+                        <div>
+                            <div style="font-weight:700;font-size:16px;">@player.Name</div>
+                            <div class="xp-pill">Lv @level · @xp/@xpNeeded XP</div>
                         </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(player.SelectedTitle))
+                    {
+                        var t = Titles.GetInfo(player.SelectedTitle, State.Settings.CustomTitles);
+                        if (t != null) { <div class="title-badge">@(t.Icon) @t.Name</div> }
                     }
                 </div>
-            }
-        </div>
+                <div class="xp-bar"><div style="width:@(xpPct)%;"></div></div>
+            </div>
 
-        <div class="card" style="margin-top:12px;">
-            <h3 style="margin-bottom:10px;">Titles (@player.UnlockedTitles.Count)</h3>
-            @if (player.UnlockedTitles.Count == 0)
+            <div class="grid grid-3">
+                <div class="stat"><div class="v">@stats.Games</div><div class="l">Games</div></div>
+                <div class="stat"><div class="v">@stats.GamesWon</div><div class="l">Wins</div></div>
+                <div class="stat"><div class="v">@stats.WinRate.ToString("F0")%</div><div class="l">Win Rate</div></div>
+                <div class="stat"><div class="v">@stats.Avg.ToString("F1")</div><div class="l">Avg</div></div>
+                <div class="stat"><div class="v">@stats.First9.ToString("F1")</div><div class="l">First 9</div></div>
+                <div class="stat"><div class="v">@stats.N180</div><div class="l">180s</div></div>
+                <div class="stat"><div class="v">@stats.N140</div><div class="l">140+</div></div>
+                <div class="stat"><div class="v">@stats.Tons</div><div class="l">100+</div></div>
+                <div class="stat"><div class="v">@stats.HighScore</div><div class="l">High Visit</div></div>
+                <div class="stat"><div class="v">@stats.HighCheckout</div><div class="l">High Checkout</div></div>
+                <div class="stat"><div class="v">@stats.LegsWon</div><div class="l">Legs Won</div></div>
+                <div class="stat"><div class="v">@stats.DartsThrown</div><div class="l">Darts Thrown</div></div>
+            </div>
+
+            @if (stats.BattleGames > 0)
             {
-                <div class="empty">No titles unlocked yet.</div>
+                <div class="card" style="margin-top:12px;">
+                    <h3 style="margin-bottom:8px;">Battle Stats</h3>
+                    <div class="grid grid-2">
+                        <div class="stat"><div class="v">@stats.BattleGames</div><div class="l">Battle Games</div></div>
+                        <div class="stat"><div class="v">@stats.Kills</div><div class="l">Kills</div></div>
+                    </div>
+                </div>
             }
-            else
-            {
-                @foreach (var tid in player.UnlockedTitles)
+
+            <div class="card" style="margin-top:12px;">
+                <h3 style="margin-bottom:10px;">Badges (@player.UnlockedBadges.Count)</h3>
+                @if (player.UnlockedBadges.Count == 0)
                 {
-                    var t = Titles.GetInfo(tid, State.Settings.CustomTitles);
-                    if (t == null) continue;
-                    <div class="list-item row" style="gap:10px;">
-                        <span style="font-size:20px;">@(t.Icon)</span>
-                        <div>
-                            <div style="font-weight:600;">@t.Name</div>
-                            <div class="muted small">@t.Desc</div>
-                        </div>
+                    <div class="empty">No badges unlocked yet.</div>
+                }
+                else
+                {
+                    <div class="grid grid-3">
+                        @foreach (var bid in player.UnlockedBadges)
+                        {
+                            var b = Badges.GetInfo(bid);
+                            if (b == null) continue;
+                            <div class="stat" style="cursor:pointer;">
+                                <div style="font-size:28px;">@(b.Icon)</div>
+                                <div class="l">@b.Name</div>
+                                @if (player.BadgeCounts?.GetValueOrDefault(bid) > 1) { <div class="muted" style="font-size:10px;">×@(player.BadgeCounts[bid])</div> }
+                            </div>
+                        }
                     </div>
                 }
-            }
-        </div>
+            </div>
+
+            <div class="card" style="margin-top:12px;">
+                <h3 style="margin-bottom:10px;">Titles (@player.UnlockedTitles.Count)</h3>
+                @if (player.UnlockedTitles.Count == 0)
+                {
+                    <div class="empty">No titles unlocked yet.</div>
+                }
+                else
+                {
+                    @foreach (var tid in player.UnlockedTitles)
+                    {
+                        var t = Titles.GetInfo(tid, State.Settings.CustomTitles);
+                        if (t == null) continue;
+                        <div class="list-item row" style="gap:10px;">
+                            <span style="font-size:20px;">@(t.Icon)</span>
+                            <div>
+                                <div style="font-weight:600;">@t.Name</div>
+                                <div class="muted small">@t.Desc</div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        }
     }
 </div>

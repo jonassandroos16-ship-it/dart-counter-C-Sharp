@@ -1,6 +1,3 @@
-@inject GameStateService State
-@inject ToastService Toast
-@inject SoundService Sound
 @using dart_counter.Logic
 
 <div class="view-scroll">
@@ -131,28 +128,25 @@
                     break;
                 @case "powerups":
                     <div class="muted small" style="margin-bottom:8px;">Equip a power-up:</div>
-                    @{
-                        _editingPlayer.PowerUps ??= new();
-                        if (_editingPlayer.PowerUps.Unlocked.Count == 0 && !_editingPlayer.DeveloperMode)
+                    @if ((_editingPlayer.PowerUps ??= new()).Unlocked.Count == 0 && !_editingPlayer.DeveloperMode)
+                    {
+                        <div class="empty">No power-ups unlocked. Level up to earn power-up points!</div>
+                    }
+                    else
+                    {
+                        var allPus = _editingPlayer.DeveloperMode ? PowerUps.All : PowerUps.All.Where(p => _editingPlayer.PowerUps.Unlocked.Contains(p.Id)).ToList();
+                        <button class="player-select-btn @(_editingPlayer.PowerUps.Active == null ? "selected" : "")" @onclick='() => _editingPlayer.PowerUps.Active = null'>
+                            <span style="font-size:18px;">🔇</span>
+                            <span>None</span>
+                            @if (_editingPlayer.PowerUps.Active == null) { <span class="check">✓</span> }
+                        </button>
+                        @foreach (var pu in allPus)
                         {
-                            <div class="empty">No power-ups unlocked. Level up to earn power-up points!</div>
-                        }
-                        else
-                        {
-                            var allPus = _editingPlayer.DeveloperMode ? PowerUps.All : PowerUps.All.Where(p => _editingPlayer.PowerUps.Unlocked.Contains(p.Id)).ToList();
-                            <button class="player-select-btn @(_editingPlayer.PowerUps.Active == null ? "selected" : "")" @onclick='() => _editingPlayer.PowerUps.Active = null'>
-                                <span style="font-size:18px;">🔇</span>
-                                <span>None</span>
-                                @if (_editingPlayer.PowerUps.Active == null) { <span class="check">✓</span> }
+                            <button class="player-select-btn @(_editingPlayer.PowerUps.Active == pu.Id ? "selected" : "")" @onclick="() => _editingPlayer.PowerUps.Active = pu.Id">
+                                <span style="font-size:18px;">@(pu.Icon)</span>
+                                <span>@pu.Name</span>
+                                @if (_editingPlayer.PowerUps.Active == pu.Id) { <span class="check">✓</span> }
                             </button>
-                            @foreach (var pu in allPus)
-                            {
-                                <button class="player-select-btn @(_editingPlayer.PowerUps.Active == pu.Id ? "selected" : "")" @onclick="() => _editingPlayer.PowerUps.Active = pu.Id">
-                                    <span style="font-size:18px;">@(pu.Icon)</span>
-                                    <span>@pu.Name</span>
-                                    @if (_editingPlayer.PowerUps.Active == pu.Id) { <span class="check">✓</span> }
-                                </button>
-                            }
                         }
                     }
                     break;
