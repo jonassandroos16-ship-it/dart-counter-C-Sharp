@@ -17,12 +17,12 @@ public class LocalStorageService
     public async Task<T?> GetAsync<T>(string key)
     {
         var json = await _js.InvokeAsync<string>("localStorage.getItem", key);
-        return string.IsNullOrEmpty(json) ? default : JsonSerializer.Deserialize<T>(json);
+        return string.IsNullOrEmpty(json) ? default : JsonSerializer.Deserialize<T>(json, JsonOpts);
     }
 
     public async Task SetAsync<T>(string key, T value)
     {
-        var json = JsonSerializer.Serialize(value);
+        var json = JsonSerializer.Serialize(value, JsonOpts);
         await _js.InvokeVoidAsync("localStorage.setItem", key, json);
     }
 
@@ -46,6 +46,7 @@ public class LocalStorageService
         var g = await GetAsync<Game>(ActiveGameKey);
         if (g == null || g.Finished) return null;
         if (g.ThrownThisRound == null) g.ThrownThisRound = new();
+        if (g.Darts == null) g.Darts = new();
         return g;
     }
     public async Task SetActiveGame(Game? game)
@@ -53,4 +54,10 @@ public class LocalStorageService
         if (game == null) await RemoveAsync(ActiveGameKey);
         else await SetAsync(ActiveGameKey, game);
     }
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
 }
