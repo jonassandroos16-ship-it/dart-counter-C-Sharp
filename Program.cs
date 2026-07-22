@@ -11,5 +11,6 @@ builder.Services.AddSingleton<LocalStorageService>();
 builder.Services.AddSingleton<SupabaseSyncService>();
 builder.Services.AddSingleton<ToastService>();
 builder.Services.AddSingleton<SoundService>();
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
 await builder.Build().RunAsync();

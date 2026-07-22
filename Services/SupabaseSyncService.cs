@@ -7,8 +7,8 @@ namespace dart_counter.Services;
 public class SupabaseSyncService
 {
     private readonly HttpClient _http;
-    private const string SupabaseUrl = "https://tcamuctvnwqjpgraiqzw.supabase.co";
-    private const string SupabaseKey = "sb_publishable_a2c7SoWIAH5attOpTJQtDQ_PsEiGC9X";
+    private const string SupabaseUrl = "https://0ec90b57d6e95fcbda19832f.supabase.co";
+    private const string SupabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJib2x0IiwicmVmIjoiMGVjOTBiNTdkNmU5NWZjYmRhMTk4MzJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4ODE1NzQsImV4cCI6MTc1ODg4MTU3NH0.9I8-U0x86Ak8t2DGaIk0HfvTSLsAyzdnz-Nw00mMkKw";
 
     public bool HasDatabase => true;
     public bool Connected { get; private set; }
@@ -18,18 +18,18 @@ public class SupabaseSyncService
 
     public SupabaseSyncService(HttpClient http) => _http = http;
 
-    private void SetHeaders()
+    private HttpRequestMessage CreateRequest(HttpMethod method, string url)
     {
-        _http.DefaultRequestHeaders.Clear();
-        _http.DefaultRequestHeaders.Add("apikey", SupabaseKey);
-        _http.DefaultRequestHeaders.Add("Authorization", $"Bearer {SupabaseKey}");
+        var req = new HttpRequestMessage(method, url);
+        req.Headers.Add("apikey", SupabaseKey);
+        req.Headers.Add("Authorization", $"Bearer {SupabaseKey}");
+        return req;
     }
 
     public async Task<bool> PushAppState(List<Player> players, Settings settings)
     {
         try
         {
-            SetHeaders();
             var payload = new
             {
                 id = "main",
@@ -37,7 +37,10 @@ public class SupabaseSyncService
                 settings,
                 updated_at = DateTime.UtcNow
             };
-            var resp = await _http.PutAsJsonAsync($"{SupabaseUrl}/rest/v1/app_state?id=eq.main", payload);
+            var req = CreateRequest(HttpMethod.Put, $"{SupabaseUrl}/rest/v1/app_state?id=eq.main");
+            req.Headers.Add("Prefer", "return=minimal,resolution=merge-duplicates");
+            req.Content = JsonContent.Create(payload);
+            var resp = await _http.SendAsync(req);
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }
@@ -47,9 +50,11 @@ public class SupabaseSyncService
     {
         try
         {
-            SetHeaders();
             var payload = new { id = game.Id, data = game };
-            var resp = await _http.PutAsJsonAsync($"{SupabaseUrl}/rest/v1/games?id=eq.{game.Id}", payload);
+            var req = CreateRequest(HttpMethod.Put, $"{SupabaseUrl}/rest/v1/games?id=eq.{game.Id}");
+            req.Headers.Add("Prefer", "return=minimal,resolution=merge-duplicates");
+            req.Content = JsonContent.Create(payload);
+            var resp = await _http.SendAsync(req);
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }
@@ -59,8 +64,8 @@ public class SupabaseSyncService
     {
         try
         {
-            SetHeaders();
-            var resp = await _http.DeleteAsync($"{SupabaseUrl}/rest/v1/games?id=eq.{id}");
+            var req = CreateRequest(HttpMethod.Delete, $"{SupabaseUrl}/rest/v1/games?id=eq.{id}");
+            var resp = await _http.SendAsync(req);
             return resp.IsSuccessStatusCode;
         }
         catch { return false; }
@@ -70,9 +75,11 @@ public class SupabaseSyncService
     {
         try
         {
-            SetHeaders();
-            var stateResp = await _http.GetAsync($"{SupabaseUrl}/rest/v1/app_state?id=eq.main&select=players,settings");
-            var gamesResp = await _http.GetAsync($"{SupabaseUrl}/rest/v1/games?select=data");
+            var stateReq = CreateRequest(HttpMethod.Get, $"{SupabaseUrl}/rest/v1/app_state?id=eq.main&select=players,settings");
+            var gamesReq = CreateRequest(HttpMethod.Get, $"{SupabaseUrl}/rest/v1/games?select=data");
+
+            var stateResp = await _http.SendAsync(stateReq);
+            var gamesResp = await _http.SendAsync(gamesReq);
 
             List<Player>? players = null;
             Settings? settings = null;
