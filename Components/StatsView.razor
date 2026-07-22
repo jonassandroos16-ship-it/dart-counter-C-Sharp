@@ -1,0 +1,74 @@
+@if (State.Players.Count == 0)
+{
+    <div class="view-scroll"><h2 style="margin-bottom:12px;">Stats</h2><div class="card empty">No players yet. Add players to see stats.</div></div>
+    return;
+}
+
+<div class="view-scroll">
+    <h2 style="margin-bottom:12px;">Stats</h2>
+    <div class="card" style="margin-bottom:12px;">
+        <div class="muted small" style="margin-bottom:8px;">Select Player</div>
+        <select class="select" @bind="_selectedPlayerId">
+            @foreach (var p in State.Players)
+            {
+                <option value="@p.Id">@p.Name</option>
+            }
+        </select>
+    </div>
+
+    @if (SelectedPlayer != null)
+    {
+        var stats = GameLogic.PlayerStats_(SelectedPlayer.Id, State.Games);
+        var (xp, level) = GameLogic.LevelFromXp(SelectedPlayer.Xp, State.Settings);
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-big">@level</div>
+                <div class="stat-label">Level</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@xp</div>
+                <div class="stat-label">XP</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.Avg.ToString("F1")</div>
+                <div class="stat-label">3-dart Avg</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.First9.ToString("F1")</div>
+                <div class="stat-label">First 9</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.Games</div>
+                <div class="stat-label">Games</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.GamesWon</div>
+                <div class="stat-label">Wins</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.WinRate.ToString("F0")%</div>
+                <div class="stat-label">Win Rate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.N180</div>
+                <div class="stat-label">180s</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.N140</div>
+                <div class="stat-label">140+</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.Tons</div>
+                <div class="stat-label">100+</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.HighScore</div>
+                <div class="stat-label">High Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-big">@stats.LegsWon</div>
+                <div class="stat-label">Legs Won</div>
+            </div>
+        </div>
+    }
+</div>

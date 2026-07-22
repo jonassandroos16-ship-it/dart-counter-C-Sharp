@@ -1,0 +1,74 @@
+<div class="row between" style="margin-bottom:12px;">
+    <h2>Players</h2>
+    <button class="btn primary sm" @onclick="AddPlayer">+ Add Player</button>
+</div>
+
+@if (State.Players.Count == 0)
+{
+    <div class="card empty">No players yet.<br />Add your first player to get started.</div>
+}
+
+@foreach (var p in State.Players)
+{
+    var stats = GameLogic.PlayerStats_(p.Id, State.Games);
+    var (xp, level) = GameLogic.LevelFromXp(p.Xp, State.Settings);
+    <div class="card player-card">
+        <div class="row between">
+            <div class="row" style="gap:12px;align-items:center;">
+                <span class="avatar" style="background:@p.Color;">@GameLogic.Initials(p.Name)</span>
+                <div>
+                    <div style="font-weight:700;font-size:16px;">@p.Name</div>
+                    <div class="muted small">Level @level · @xp XP · @stats.Games games · @stats.GamesWon wins</div>
+                </div>
+            </div>
+            <div class="row" style="gap:6px;">
+                <button class="btn sm" @onclick="() => EditPlayer(p)">Edit</button>
+                <button class="btn sm danger" @onclick="() => DeletePlayer(p)">Delete</button>
+            </div>
+        </div>
+        @if (stats.Games > 0)
+        {
+            <div class="player-stats-row">
+                <div class="stat-mini"><span class="stat-val">@stats.Avg.ToString("F1")</span><span class="stat-label">Avg</span></div>
+                <div class="stat-mini"><span class="stat-val">@stats.N180</span><span class="stat-label">180s</span></div>
+                <div class="stat-mini"><span class="stat-val">@stats.Tons</span><span class="stat-label">100+</span></div>
+                <div class="stat-mini"><span class="stat-val">@stats.HighScore</span><span class="stat-label">High</span></div>
+                <div class="stat-mini"><span class="stat-val">@stats.WinRate.ToString("F0")%</span><span class="stat-label">Win%</span></div>
+            </div>
+        }
+    </div>
+}
+
+@if (_editing != null)
+{
+    <div class="modal-bg" @onclick="CancelEdit">
+        <div class="modal" @onclick:stopPropagation>
+            <h3 style="margin-bottom:16px;">@(_isNew ? "New Player" : "Edit Player")</h3>
+            <div style="margin-bottom:12px;">
+                <label class="small muted" style="display:block;margin-bottom:4px;">Name</label>
+                <input class="input" @bind="_editName" placeholder="Player name" @onkeydown="@(_editName.Trim().Length > 0 ? (EventCallback)KeyDownEnterSave : EventCallback.Empty)" />
+            </div>
+            <div style="margin-bottom:16px;">
+                <label class="small muted" style="display:block;margin-bottom:4px;">Color</label>
+                <div class="color-picker-row">
+                    @foreach (var c in GameModes.Colors)
+                    {
+                        var color = c;
+                        <button class="color-swatch @(_editColor == color ? "selected" : "")" style="background:@color;" @onclick="() => _editColor = color"></button>
+                    }
+                </div>
+            </div>
+            <div class="row" style="gap:8px;">
+                <button class="btn block" @onclick="CancelEdit">Cancel</button>
+                <button class="btn primary block" @onclick="SavePlayer" disabled="@(string.IsNullOrWhiteSpace(_editName))">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private async Task KeyDownEnterSave(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SavePlayer();
+    }
+}

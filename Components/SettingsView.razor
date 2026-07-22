@@ -1,0 +1,83 @@
+<div class="view-scroll">
+    <h2 style="margin-bottom:16px;">Settings</h2>
+
+    <div class="card" style="margin-bottom:12px;">
+        <div class="muted small" style="margin-bottom:8px;">Appearance</div>
+        <div class="row between" style="margin-bottom:12px;">
+            <span>Theme</span>
+            <button class="btn sm" @onclick="ToggleTheme">@(State.Settings.Theme == "dark" ? "🌙 Dark" : "☀️ Light")</button>
+        </div>
+        <div class="row between" style="margin-bottom:8px;">
+            <span>Accent Color</span>
+        </div>
+        <div class="color-picker-row">
+            @foreach (var c in new[] { "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#a855f7", "#84cc16" })
+            {
+                var color = c;
+                <button class="color-swatch @(State.Settings.Accent == color ? "selected" : "")" style="background:@color;" @onclick="() => SetAccent(color)"></button>
+            }
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;">
+        <div class="muted small" style="margin-bottom:8px;">Game</div>
+        <label class="row between" style="margin-bottom:8px;cursor:pointer;">
+            <span>Confirm Reset</span>
+            <input type="checkbox" @bind="State.Settings.ConfirmReset" @bind:after="() => Update(s => s.ConfirmReset = State.Settings.ConfirmReset)" />
+        </label>
+        <label class="row between" style="margin-bottom:8px;cursor:pointer;">
+            <span>Sound Effects</span>
+            <input type="checkbox" @bind="State.Settings.Sound" @bind:after="() => Update(s => s.Sound = State.Settings.Sound)" />
+        </label>
+        <label class="row between" style="cursor:pointer;">
+            <span>Music</span>
+            <input type="checkbox" @bind="State.Settings.Music" @bind:after="() => Update(s => s.Music = State.Settings.Music)" />
+        </label>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;">
+        <div class="muted small" style="margin-bottom:8px;">Cloud Sync</div>
+        <div class="row between" style="margin-bottom:8px;">
+            <span class="small">Status</span>
+            <span class="small">
+                @if (State.Connected)
+                {
+                    <span style="color:var(--success);">● Connected</span>
+                }
+                else
+                {
+                    <span style="color:var(--muted);">○ Not synced</span>
+                }
+                @if (State.LastSync.HasValue)
+                {
+                    <span class="muted"> · @State.LastSync.Value.ToString("HH:mm")</span>
+                }
+            </span>
+        </div>
+        <button class="btn primary block" @onclick="Sync" disabled="@State.Syncing">
+            @(State.Syncing ? "Syncing..." : "Sync Now")
+        </button>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;">
+        <div class="muted small" style="margin-bottom:8px;">Data</div>
+        <button class="btn block" @onclick="ExportData">Export Data (JSON)</button>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;">
+        <div class="muted small" style="margin-bottom:8px;">About</div>
+        <p class="small muted">Dart Wars (C# / Blazor) — A dart counter with RPG mechanics.
+        <br />Converted from React/TypeScript to C# Blazor WebAssembly.</p>
+    </div>
+</div>
+
+@if (_showExport)
+{
+    <div class="modal-bg" @onclick="() => _showExport = false">
+        <div class="modal" @onclick:stopPropagation>
+            <h3 style="margin-bottom:12px;">Export Data</h3>
+            <textarea class="input" style="width:100%;min-height:200px;font-size:11px;" readonly>@_exportData</textarea>
+            <button class="btn primary block" style="margin-top:8px;" @onclick="() => _showExport = false">Close</button>
+        </div>
+    </div>
+}
