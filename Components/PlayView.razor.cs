@@ -11,7 +11,6 @@ public partial class PlayView : ComponentBase
     [Inject] ToastService Toast { get; set; } = default!;
     [Inject] SoundService Sound { get; set; } = default!;
 
-    private string _mode = "menu";
     private string _selectedMode = "501";
     private bool _doubleOut = true;
     private int _legsBestOf = 3;
@@ -23,7 +22,7 @@ public partial class PlayView : ComponentBase
     private Game? _game;
     private List<Dart> _currentDarts = new();
     private int _currentDartIdx = 0;
-    private string _lastScore = "";
+    private int _multiplier = 1; // 1=single, 2=double, 3=triple
 
     protected override void OnInitialized()
     {
@@ -46,20 +45,73 @@ public partial class PlayView : ComponentBase
         _showDartboard = true;
         _currentDarts = new();
         _currentDartIdx = 0;
+        _multiplier = 1;
         await Sound.PlaySfx("showdown", State.Settings);
         State.Notify();
     }
 
-    private async Task RecordDart(int value, string label, bool isDouble = false, bool isTriple = false, bool isBull = false)
+    private void SetMultiplier(int m) => _multiplier = m;
+
+    private async Task RecordDart(int baseValue, string label)
     {
         if (_game == null || _game.Finished) return;
         if (_currentDartIdx >= 3) return;
 
-        var dart = new Dart { Value = value, Label = label, IsDouble = isDouble, IsTriple = isTriple, IsBull = isBull };
+        int value = baseValue * _multiplier;
+        bool isDouble = _multiplier == 2;
+        bool isTriple = _multiplier == 3;
+        bool isBull = label == "Bull" || label == "Bullseye";
+
+        string dartLabel = label;
+        if (_multiplier == 2 && baseValue > 0) dartLabel = "D" + baseValue;
+        else if (_multiplier == 3 && baseValue > 0) dartLabel = "T" + baseValue;
+
+        var dart = new Dart { Value = value, Label = dartLabel, IsDouble = isDouble, IsTriple = isTriple, IsBull = isBull };
         _currentDarts.Add(dart);
         _currentDartIdx++;
+        _multiplier = 1;
 
         await Sound.PlaySfx("hit", State.Settings);
+
+        if (_currentDartIdx >= 3)
+        {
+            await SubmitVisit();
+        }
+    }
+
+    private async Task RecordBull()
+    {
+        if (_game == null || _game.Finished) return;
+        if (_currentDartIdx >= 3) return;
+
+        int value = _multiplier == 2 ? 50 : 25;
+        bool isBull = true;
+        bool isDouble = _multiplier == 2;
+
+        string dartLabel = _multiplier == 2 ? "Bullseye" : "Bull";
+
+        var dart = new Dart { Value = value, Label = dartLabel, IsDouble = isDouble, IsBull = isBull };
+        _currentDarts.Add(dart);
+        _currentDartIdx++;
+        _multiplier = 1;
+
+        await Sound.PlaySfx("hit", State.Settings);
+
+        if (_currentDartIdx >= 3)
+        {
+            await SubmitVisit();
+        }
+    }
+
+    private async Task RecordMiss()
+    {
+        if (_game == null || _game.Finished) return;
+        if (_currentDartIdx >= 3) return;
+
+        var dart = new Dart { Value = 0, Label = "Miss" };
+        _currentDarts.Add(dart);
+        _currentDartIdx++;
+        _multiplier = 1;
 
         if (_currentDartIdx >= 3)
         {
@@ -73,6 +125,7 @@ public partial class PlayView : ComponentBase
         {
             _currentDarts.RemoveAt(_currentDarts.Count - 1);
             _currentDartIdx--;
+            _multiplier = 1;
         }
     }
 
@@ -116,7 +169,11 @@ public partial class PlayView : ComponentBase
                 {
                     var target = GameModes.AtcTargets[targetIdx + hits];
                     if (target == -1 && dart.IsBull) hits++;
-                    else if (target != -1 && dart.Value > 0 && (dart.Label.Contains(target.ToString()) || dart.Value == target * (dart.IsTriple ? 3 : dart.IsDouble ? 2 : 1))) hits++;
+                    else if (target != -1)
+                    {
+                        var dartNum = dart.Value / (dart.IsTriple ? 3 : dart.IsDouble ? 2 : 1);
+                        if (dartNum == target) hits++;
+                    }
                 }
             }
             visit.Hits = hits;
@@ -155,7 +212,7 @@ public partial class PlayView : ComponentBase
             player.Score = remaining;
         }
 
-        if (_game.HighScore() || _game.Mode == "highscore")
+        if (_game.HighScore())
         {
             var maxVisits = 7;
             if (player.Visits.Count >= maxVisits)
@@ -239,7 +296,6 @@ public partial class PlayView : ComponentBase
         _showGameOver = false;
         _showSetup = false;
         _showModeSelect = true;
-        _mode = "menu";
         State.Notify();
     }
 
