@@ -33,11 +33,46 @@ public class GameStateService
     {
         if (_initialized) return;
         _initialized = true;
-        Players = await _localStorage.GetPlayers();
-        Games = await _localStorage.GetGames();
-        Settings = await _localStorage.GetSettings();
-        ActiveGame = await _localStorage.GetActiveGame();
+        try
+        {
+            Players = await _localStorage.GetPlayers();
+            Games = await _localStorage.GetGames();
+            Settings = await _localStorage.GetSettings();
+            ActiveGame = await _localStorage.GetActiveGame();
+        }
+        catch { }
         Notify();
+
+        _ = BackgroundSync();
+    }
+
+    private async Task BackgroundSync()
+    {
+        try
+        {
+            var pulled = await _sync.PullAll();
+            if (pulled == null) { Connected = false; return; }
+
+            Connected = true;
+            var remote = pulled.Value;
+
+            var localPlayerIds = new HashSet<string>(Players.Select(p => p.Id));
+            foreach (var rp in remote.players)
+                if (!localPlayerIds.Contains(rp.Id))
+                    Players.Add(rp);
+
+            var localGameIds = new HashSet<string>(Games.Select(g => g.Id));
+            foreach (var rg in remote.games)
+                if (!localGameIds.Contains(rg.Id))
+                    Games.Add(rg);
+
+            await _localStorage.SetPlayers(Players);
+            await _localStorage.SetGames(Games);
+            UpToDate = true;
+            LastSync = DateTime.UtcNow;
+            Notify();
+        }
+        catch { Connected = false; }
     }
 
     public async Task SetPlayers(List<Player> players)

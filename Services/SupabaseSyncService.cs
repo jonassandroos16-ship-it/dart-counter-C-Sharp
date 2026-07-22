@@ -26,7 +26,7 @@ public class SupabaseSyncService
         return req;
     }
 
-    public async Task<bool> PushAppState(List<Player> players, Settings settings)
+    public async Task<bool> PushAppState(List<Player> players, Settings settings, List<string>? deletedPlayerIds = null, List<string>? deletedGameIds = null)
     {
         try
         {
@@ -35,9 +35,11 @@ public class SupabaseSyncService
                 id = "main",
                 players,
                 settings,
+                deleted_player_ids = deletedPlayerIds ?? new List<string>(),
+                deleted_game_ids = deletedGameIds ?? new List<string>(),
                 updated_at = DateTime.UtcNow
             };
-            var req = CreateRequest(HttpMethod.Put, $"{SupabaseUrl}/rest/v1/app_state?id=eq.main");
+            var req = CreateRequest(HttpMethod.Post, $"{SupabaseUrl}/rest/v1/app_state");
             req.Headers.Add("Prefer", "return=minimal,resolution=merge-duplicates");
             req.Content = JsonContent.Create(payload);
             var resp = await _http.SendAsync(req);
@@ -51,7 +53,7 @@ public class SupabaseSyncService
         try
         {
             var payload = new { id = game.Id, data = game };
-            var req = CreateRequest(HttpMethod.Put, $"{SupabaseUrl}/rest/v1/games?id=eq.{game.Id}");
+            var req = CreateRequest(HttpMethod.Post, $"{SupabaseUrl}/rest/v1/games");
             req.Headers.Add("Prefer", "return=minimal,resolution=merge-duplicates");
             req.Content = JsonContent.Create(payload);
             var resp = await _http.SendAsync(req);
@@ -71,11 +73,11 @@ public class SupabaseSyncService
         catch { return false; }
     }
 
-    public async Task<(List<Player> players, Settings settings, List<GameRecord> games)?> PullAll()
+    public async Task<(List<Player> players, Settings settings, List<GameRecord> games, List<string> deletedPlayerIds, List<string> deletedGameIds)?> PullAll()
     {
         try
         {
-            var stateReq = CreateRequest(HttpMethod.Get, $"{SupabaseUrl}/rest/v1/app_state?id=eq.main&select=players,settings");
+            var stateReq = CreateRequest(HttpMethod.Get, $"{SupabaseUrl}/rest/v1/app_state?id=eq.main&select=players,settings,deleted_player_ids,deleted_game_ids");
             var gamesReq = CreateRequest(HttpMethod.Get, $"{SupabaseUrl}/rest/v1/games?select=data");
 
             var stateResp = await _http.SendAsync(stateReq);
@@ -83,6 +85,8 @@ public class SupabaseSyncService
 
             List<Player>? players = null;
             Settings? settings = null;
+            List<string>? deletedPlayerIds = null;
+            List<string>? deletedGameIds = null;
             List<GameRecord>? games = null;
 
             if (stateResp.IsSuccessStatusCode)
@@ -96,6 +100,10 @@ public class SupabaseSyncService
                         players = JsonSerializer.Deserialize<List<Player>>(pEl.GetRawText());
                     if (row.TryGetProperty("settings", out var sEl))
                         settings = JsonSerializer.Deserialize<Settings>(sEl.GetRawText());
+                    if (row.TryGetProperty("deleted_player_ids", out var dpEl))
+                        deletedPlayerIds = JsonSerializer.Deserialize<List<string>>(dpEl.GetRawText());
+                    if (row.TryGetProperty("deleted_game_ids", out var dgEl))
+                        deletedGameIds = JsonSerializer.Deserialize<List<string>>(dgEl.GetRawText());
                 }
             }
 
@@ -117,7 +125,7 @@ public class SupabaseSyncService
                 }
             }
 
-            return (players ?? new(), settings ?? new Settings(), games ?? new());
+            return (players ?? new(), settings ?? new Settings(), games ?? new(), deletedPlayerIds ?? new(), deletedGameIds ?? new());
         }
         catch { return null; }
     }
@@ -136,7 +144,7 @@ public class SupabaseSyncService
 
             Connected = true;
 
-            var okState = await PushAppState(players, settings);
+            var okState = await PushAppState(players, settings, pulled.Value.deletedPlayerIds, pulled.Value.deletedGameIds);
             var okGames = true;
             foreach (var g in games)
             {

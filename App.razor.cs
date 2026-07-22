@@ -27,7 +27,14 @@ public partial class App : ComponentBase, IDisposable
     {
         State.OnChange += StateOnChange;
         Toast.OnChange += ToastOnChange;
-        await State.Initialize();
+        try
+        {
+            await State.Initialize();
+        }
+        catch
+        {
+            // App will use defaults if initialization fails
+        }
         _loading = false;
     }
 
